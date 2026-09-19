@@ -343,7 +343,7 @@ function init() {
   const el = document.getElementById("view3d");
   if (!el) return;
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b1220);
+  scene.background = new THREE.Color(0x02080d);
   camera = new THREE.PerspectiveCamera(40, el.clientWidth / Math.max(el.clientHeight, 1), 1, 4000);
   camera.position.set(200, 170, 240);
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -356,7 +356,7 @@ function init() {
   const dir = new THREE.DirectionalLight(0xffffff, 0.85);
   dir.position.set(90, 160, 70);
   scene.add(dir);
-  scene.add(new THREE.GridHelper(420, 16, 0x334155, 0x1e293b));
+  scene.add(new THREE.GridHelper(420, 16, 0x155e75, 0x0b2a33));
   rebuildPreview();
   window.addEventListener("resize", () => {
     camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1);
