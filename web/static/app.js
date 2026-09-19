@@ -264,6 +264,49 @@ function padTilts() {
 }
 
 const TILT_ANGLES = [-30, -15, 0, 15, 30, 45];
+let foldSel = 0;
+let foldDrag = null;
+
+function snapTilt(deg) {
+  let best = 0;
+  let bestD = 1e9;
+  for (const a of TILT_ANGLES) {
+    const d = Math.abs(deg - a);
+    if (d < bestD - 0.001 || (Math.abs(d - bestD) < 0.001 && (a === 0 || Math.abs(a) < Math.abs(best)))) {
+      best = a;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+function stripName(mode, i, n) {
+  if (n < 2) return mode === "col" ? "Column 1" : "Row 1";
+  if (mode === "col") {
+    if (i === 0) return "Left";
+    if (i === n - 1) return "Right";
+    return `Column ${i + 1}`;
+  }
+  if (i === 0) return "Front";
+  if (i === n - 1) return "Back";
+  return `Row ${i + 1}`;
+}
+
+function applyFold(i, deg, live) {
+  padTilts();
+  const a = snapTilt(deg);
+  if ((Number(layout.tilts[i]) || 0) === a && live) return;
+  layout.tilts[i] = a;
+  if (live) {
+    const cap = $("fold-caption");
+    if (cap) cap.innerHTML = `<em>${stripName(layout.tilt_axis, i, nStrips())}</em>  ${a}°`;
+    bumpPreview();
+    return;
+  }
+  renderTilts();
+  bumpPreview();
+  renderBOM();
+}
 
 function renderTilts() {
   padTilts();
@@ -275,47 +318,123 @@ function renderTilts() {
   const help = $("tilt-help");
   const box = $("tilt-strips");
   const actions = $("tilt-actions");
+  const match = $("tilt-match");
   if (!box) return;
   box.innerHTML = "";
   const mode = layout.tilt_axis || "flat";
+  const n = nStrips();
+  if (foldSel < 0 || foldSel >= n) foldSel = 0;
   if (mode === "flat") {
-    if (help) help.textContent = "Lid is one flat plane. Choose rows or columns to fold it.";
+    if (help) help.textContent = "The lid stays one even sheet.";
     if (actions) actions.hidden = true;
+    const wrap = document.createElement("div");
+    wrap.className = "fold-schematic is-flat";
+    wrap.innerHTML = '<p class="fold-caption"><em>FLAT</em></p>';
+    box.appendChild(wrap);
     return;
   }
   if (actions) actions.hidden = false;
+  if (match) match.disabled = foldSel == null;
   if (help) {
     help.textContent = mode === "col"
-      ? "Each column is a strip from front to back. Plus degrees lift the right edge of that strip."
-      : "Each row is a strip from left to right. Plus degrees lift the back edge of that strip.";
+      ? "Each column leans on its own. 30° raises the right."
+      : "Each row leans on its own. 30° raises the back.";
   }
-  const n = nStrips();
+  const L = Math.max(22, Math.min(40, 240 / Math.max(n, 1)));
+  const hinges = [];
+  let x = 0;
+  let y = 0;
   for (let i = 0; i < n; i++) {
-    const row = document.createElement("div");
-    row.className = "tilt-strip";
-    const lab = document.createElement("span");
-    if (mode === "col") {
-      lab.textContent = i === 0 ? `Col ${i} left` : (i === n - 1 ? `Col ${i} right` : `Col ${i}`);
-    } else {
-      lab.textContent = i === 0 ? `Row ${i} front` : (i === n - 1 ? `Row ${i} back` : `Row ${i}`);
-    }
-    row.appendChild(lab);
-    const cur = Number(layout.tilts[i]) || 0;
-    for (const a of TILT_ANGLES) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = `${a}°`;
-      if (a === cur) b.classList.add("on");
-      b.addEventListener("click", () => {
-        layout.tilts[i] = a;
-        renderTilts();
-        bumpPreview();
-        renderBOM();
-      });
-      row.appendChild(b);
-    }
-    box.appendChild(row);
+    const a = Number(layout.tilts[i]) || 0;
+    const rad = (a * Math.PI) / 180;
+    const x2 = x + L * Math.cos(rad);
+    const y2 = y + L * Math.sin(rad);
+    hinges.push({ i, x, y, x2, y2, a });
+    x = x2 + 6 * Math.cos(rad);
+    y = y2 + 6 * Math.sin(rad);
   }
+  let minX = 0;
+  let maxX = 0;
+  let minY = 0;
+  let maxY = 0;
+  for (const h of hinges) {
+    minX = Math.min(minX, h.x, h.x2);
+    maxX = Math.max(maxX, h.x, h.x2);
+    minY = Math.min(minY, -h.y, -h.y2);
+    maxY = Math.max(maxY, -h.y, -h.y2);
+  }
+  const vb = 16;
+  const svg = svgEl("svg", {
+    class: "fold-svg",
+    viewBox: `${minX - vb} ${minY - vb} ${maxX - minX + vb * 2} ${Math.max(36, maxY - minY) + vb * 2}`,
+    width: "100%",
+    height: "88",
+    "aria-label": "Lid fold",
+  });
+  svg.style.touchAction = "none";
+  svg.appendChild(svgEl("line", { class: "fold-datum", x1: minX - 8, y1: 0, x2: maxX + 8, y2: 0 }));
+  for (const h of hinges) {
+    const g = svgEl("g", { class: "fold-hit", "data-i": String(h.i) });
+    const plate = svgEl("line", {
+      class: "fold-plate" + (h.i === foldSel ? " is-on" : ""),
+      x1: h.x,
+      y1: -h.y,
+      x2: h.x2,
+      y2: -h.y2,
+    });
+    g.appendChild(plate);
+    if (h.i === foldSel) {
+      g.appendChild(svgEl("circle", { class: "fold-handle", cx: h.x2, cy: -h.y2, r: 7 }));
+    }
+    const hit = svgEl("line", {
+      class: "fold-hot",
+      x1: h.x,
+      y1: -h.y,
+      x2: h.x2,
+      y2: -h.y2,
+    });
+    g.appendChild(hit);
+    g.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      foldSel = h.i;
+      foldDrag = {
+        i: h.i,
+        hx: h.x,
+        hy: h.y,
+        svg,
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false,
+      };
+      try { g.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      svg.querySelectorAll(".fold-plate").forEach((p, idx) => {
+        p.classList.toggle("is-on", idx === h.i);
+      });
+      const cap = $("fold-caption");
+      if (cap) cap.innerHTML = `<em>${stripName(mode, h.i, n)}</em>  ${h.a}°`;
+      if (match) match.disabled = false;
+    });
+    g.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      applyFold(h.i, 0, false);
+    });
+    svg.appendChild(g);
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "fold-schematic";
+  wrap.appendChild(svg);
+  const ends = document.createElement("div");
+  ends.className = "fold-ends";
+  ends.innerHTML = mode === "col" ? "<span>Left</span><span>Right</span>" : "<span>Front</span><span>Back</span>";
+  wrap.appendChild(ends);
+  const cap = document.createElement("p");
+  cap.className = "fold-caption";
+  cap.id = "fold-caption";
+  const a0 = Number(layout.tilts[foldSel]) || 0;
+  cap.innerHTML = `<em>${stripName(mode, foldSel, n)}</em>  ${a0}°`;
+  wrap.appendChild(cap);
+  box.appendChild(wrap);
 }
 
 function updateSizeLock() {
@@ -793,13 +912,39 @@ $("tilt-all-0")?.addEventListener("click", () => {
   bumpPreview();
   renderBOM();
 });
-$("tilt-all-30")?.addEventListener("click", () => {
+$("tilt-match")?.addEventListener("click", () => {
   padTilts();
-  for (let i = 0; i < nStrips(); i++) layout.tilts[i] = 30;
+  const a = Number(layout.tilts[foldSel]) || 0;
+  for (let i = 0; i < nStrips(); i++) layout.tilts[i] = a;
   renderTilts();
   bumpPreview();
   renderBOM();
 });
+document.addEventListener("pointermove", (e) => {
+  if (!foldDrag) return;
+  const dx = e.clientX - foldDrag.startX;
+  const dy = e.clientY - foldDrag.startY;
+  if (!foldDrag.moved && dx * dx + dy * dy < 64) return;
+  foldDrag.moved = true;
+  const ctm = foldDrag.svg.getScreenCTM();
+  if (!ctm) return;
+  const p = foldDrag.svg.createSVGPoint();
+  p.x = e.clientX;
+  p.y = e.clientY;
+  const loc = p.matrixTransform(ctm.inverse());
+  const mx = loc.x - foldDrag.hx;
+  const my = -loc.y - foldDrag.hy;
+  const deg = Math.atan2(my, mx) * (180 / Math.PI);
+  applyFold(foldDrag.i, deg, true);
+});
+document.addEventListener("pointerup", () => {
+  if (!foldDrag) return;
+  const drag = foldDrag;
+  foldDrag = null;
+  renderTilts();
+  if (drag.moved) renderBOM();
+});
+document.addEventListener("pointercancel", () => { foldDrag = null; });
 $("devfilter").addEventListener("input", fillDevices);
 $("add-wall").addEventListener("click", () => {
   layout.walls.push({
