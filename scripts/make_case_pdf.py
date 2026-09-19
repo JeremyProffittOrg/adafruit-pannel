@@ -24,13 +24,13 @@ WHITE = colors.HexColor("#ffffff")
 
 PARTS = [
     ("bottom", ROOT / "print-kits" / "sliders-quads-case" / "bottom.stl", COLORS["strip"],
-     "Bottom tray  5 x 4 cells  25 mm inside  M3 from below"),
+     "Bottom tray  5 x 4 cells  25 mm inside  M3 from below, blind peg sockets"),
     ("top", ROOT / "print-kits" / "sliders-quads-case" / "top.stl", COLORS["faceplate"],
-     "Top lid  print this way (visible face on the bed, bosses up)"),
+     "Top lid  print this way (visible face on the bed, skirt and bosses up)"),
     ("tilt_bottom", ROOT / "print-kits" / "sliders-quads-case" / "tilt-bottom.stl", COLORS["join"],
      "Tilt demo tray  4 x 6  rows 0,0,0,+30,+30,-30"),
     ("tilt_top", ROOT / "print-kits" / "sliders-quads-case" / "tilt-top.stl", COLORS["adapter"],
-     "Tilt demo lid  same slope, posts on the back of the lid in the rim"),
+     "Tilt demo lid  same slope, skirt over the tray, short rim pegs"),
 ]
 
 

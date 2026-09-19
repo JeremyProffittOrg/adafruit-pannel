@@ -5,6 +5,13 @@ const PITCH = 25.4;
 const WALL = 8;
 const BOT = 3;
 const TOP = 3.2;
+const FIT = 0.4;
+const SKIRT = 2.2;
+const SKIRT_H = 8;
+const PEG_H = 2.5;
+const PEG_D = 4;
+const PEG_INSET = 3;
+const EX = FIT + SKIRT;
 const CUT = 0xff4d6d; // high-contrast cutout fill (YAPP-style lid holes)
 
 let renderer, scene, camera, controls, root;
@@ -114,11 +121,11 @@ function addCutoutMarkers(parent, cx, cy, z, cuts, rotX) {
 function lidWithHoles(l, inner) {
   const cols = l.cols;
   const rows = l.rows;
-  const w = cols * PITCH + 2 * WALL;
-  const d = rows * PITCH + 2 * WALL;
+  const w = cols * PITCH + 2 * WALL + 2 * EX;
+  const d = rows * PITCH + 2 * WALL + 2 * EX;
   const shape = new THREE.Shape();
   const e = Math.min(l.edge_mm || 2, 6);
-  roundedRectPath(shape, -WALL, -WALL, w, d, l.edge_style === "square" ? 0 : e);
+  roundedRectPath(shape, -WALL - EX, -WALL - EX, w, d, l.edge_style === "square" ? 0 : e);
 
   for (const { p, def } of placedDevices(l)) {
     if (def.place === "bottom" || def.place === "wall") continue;
@@ -149,7 +156,7 @@ function build(l) {
   const g = new THREE.Group();
   if (!l) return g;
   const inner = l.inner_h || 25;
-  const H = BOT + inner + 1.6;
+  const H = BOT + inner;
   const cols = l.cols || 1;
   const rows = l.rows || 1;
   const tray = new THREE.Group();
@@ -265,19 +272,36 @@ function build(l) {
     tray.add(grp);
   }
 
-  const xs = [-WALL / 2, cols * PITCH + WALL / 2];
-  const postGeom = new THREE.CylinderGeometry(3.4, 3.4, inner - 0.2, 12);
+  const pegGeom = new THREE.CylinderGeometry(PEG_D / 2, PEG_D / 2, PEG_H, 12);
   const postMat = new THREE.MeshLambertMaterial({ color: postC });
-  for (let r = 0; r <= rows; r++) {
-    const i = r === rows ? rows - 1 : r;
-    const ly = r === rows ? PITCH : 0;
-    const y = accumY(l, i) + ly * Math.cos((tiltOf(l, i) * Math.PI) / 180);
-    for (const x of xs) {
-      const p = new THREE.Mesh(postGeom, postMat);
-      p.position.set(x, y, BOT + inner / 2);
-      lid.add(p);
-    }
+  const pegZ = BOT + inner - PEG_H / 2;
+  function addPeg(x, y) {
+    const p = new THREE.Mesh(pegGeom, postMat);
+    p.position.set(x, y, pegZ);
+    lid.add(p);
   }
+  for (let r = 0; r < rows; r++) {
+    if (Math.abs(tiltOf(l, r)) >= 0.05) continue;
+    addPeg(-PEG_INSET, (r + 0.5) * PITCH);
+    addPeg(cols * PITCH + PEG_INSET, (r + 0.5) * PITCH);
+  }
+  const yf = -PEG_INSET;
+  const yb = rows * PITCH + PEG_INSET;
+  if (cols > 1) {
+    for (let c = 1; c < cols; c++) addPeg(c * PITCH, yf), addPeg(c * PITCH, yb);
+  } else {
+    addPeg(PITCH / 2, yf);
+    addPeg(PITCH / 2, yb);
+  }
+
+  const skirtMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
+  const zSk = BOT + inner - SKIRT_H / 2;
+  const cw = cols * PITCH + 2 * WALL + 2 * EX;
+  const cd = rows * PITCH + 2 * WALL + 2 * EX;
+  box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, -WALL - FIT - SKIRT / 2, zSk, skirtMat);
+  box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, rows * PITCH + WALL + FIT + SKIRT / 2, zSk, skirtMat);
+  box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, -WALL - FIT - SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
+  box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
 
   if (viewMode === "bottom") g.add(tray);
   else if (viewMode === "top") {
