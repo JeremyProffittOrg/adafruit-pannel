@@ -90,8 +90,22 @@ def main() -> None:
         filename="adafruit-control-panel.pdf",
     )
 
-    raw_path = ROOT / "docs" / "_ses-raw.eml"
-    raw_path.write_bytes(msg.as_bytes())
+    import base64
+    import os
+
+    raw_bytes = msg.as_bytes()
+    payload_path = ROOT / "docs" / "_ses-request.json"
+    payload_path.write_text(
+        json.dumps(
+            {
+                "Source": "jeremy@jeremy.ninja",
+                "Destinations": [TO_ADDR],
+                "RawMessage": {"Data": base64.b64encode(raw_bytes).decode("ascii")},
+            }
+        ),
+        encoding="utf-8",
+    )
+    env = {**os.environ, "AWS_PAGER": "", "AWS_MAX_ATTEMPTS": "1"}
     try:
         result = subprocess.run(
             [
@@ -100,14 +114,11 @@ def main() -> None:
                 "send-raw-email",
                 "--region",
                 REGION,
-                "--from",
-                "jeremy@jeremy.ninja",
-                "--destinations",
-                TO_ADDR,
+                "--cli-input-json",
+                "file://" + str(payload_path),
                 "--cli-binary-format",
-                "raw-in-base64-out",
-                "--raw-message",
-                f"fileb://{raw_path}",
+                "base64",
+                "--no-cli-pager",
                 "--output",
                 "json",
             ],
@@ -115,10 +126,11 @@ def main() -> None:
             text=True,
             encoding="utf-8",
             timeout=90,
+            env=env,
         )
     finally:
-        if raw_path.exists():
-            raw_path.unlink()
+        if payload_path.exists():
+            payload_path.unlink()
 
     if result.returncode:
         print(result.stderr, file=sys.stderr)
