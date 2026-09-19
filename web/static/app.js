@@ -7,6 +7,7 @@ let layout = {
   edge_style: "round",
   edge_mm: 2,
   hang: true,
+  overlap: true,
   tilts: [0, 0, 0, 0],
   devices: [],
   walls: [],
@@ -37,6 +38,7 @@ function cloneLayout(src) {
   l.edge_style = l.edge_style || "round";
   l.edge_mm = numOr(l.edge_mm, 2);
   l.hang = l.hang !== false;
+  l.overlap = l.overlap !== false;
   return l;
 }
 
@@ -245,6 +247,7 @@ function syncSize() {
   layout.edge_style = $("edge")?.value || "round";
   layout.edge_mm = numOr($("edgemm")?.value, 2);
   layout.hang = $("hang") ? $("hang").checked : true;
+  layout.overlap = $("overlap") ? $("overlap").value !== "no" : true;
   clipDevices();
   renderTilts();
   renderGrid();
@@ -261,6 +264,10 @@ function setHang(on) {
   if ($("hang")) $("hang").checked = !!on;
 }
 
+function setOverlap(on) {
+  if ($("overlap")) $("overlap").value = on ? "yes" : "no";
+}
+
 function clearNotes() {
   if ($("notelist")) $("notelist").innerHTML = "";
   if ($("notetext")) $("notetext").value = "";
@@ -272,6 +279,7 @@ $("inner").addEventListener("input", syncSize);
 $("edge").addEventListener("change", syncSize);
 $("edgemm").addEventListener("input", syncSize);
 $("hang")?.addEventListener("change", syncSize);
+$("overlap")?.addEventListener("change", syncSize);
 $("devfilter").addEventListener("input", fillDevices);
 $("add-wall").addEventListener("click", () => {
   layout.walls.push({
@@ -290,9 +298,10 @@ $("preset-sq").addEventListener("click", () => {
   $("inner").value = 25;
   setEdgeInputs("round", 2);
   setHang(true);
+  setOverlap(true);
   clearNotes();
   layout = {
-    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, tilts: [0, 0, 0, 0], walls: [],
+    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, overlap: true, tilts: [0, 0, 0, 0], walls: [],
     devices: [
       { id: "neoslider", c: 0, r: 0 },
       { id: "neoslider", c: 1, r: 0 },
@@ -312,9 +321,10 @@ $("preset-tilt").addEventListener("click", () => {
   $("inner").value = 25;
   setEdgeInputs("round", 2);
   setHang(true);
+  setOverlap(true);
   clearNotes();
   layout = {
-    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true,
+    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, overlap: true,
     tilts: [0, 0, 0, 30, 30, -30],
     devices: [],
     walls: [],
@@ -369,7 +379,13 @@ function renderBOM() {
   tb.innerHTML = "";
   const lines = [];
   lines.push({ qty: 1, item: "Bottom tray (printed)", url: "" });
-  lines.push({ qty: 1, item: "Lid (printed, face on bed)", url: "" });
+  lines.push({
+    qty: 1,
+    item: layout.overlap !== false
+      ? "Lid (printed, face on bed, skirt overlaps tray)"
+      : "Lid (printed, face on bed, flush — no overlap)",
+    url: "",
+  });
   const screws = {};
   for (const d of layout.devices) {
     const def = byId[d.id];
@@ -445,6 +461,7 @@ function applyCase(rec) {
   $("inner").value = layout.inner_h;
   setEdgeInputs(layout.edge_style, layout.edge_mm);
   setHang(layout.hang !== false);
+  setOverlap(layout.overlap !== false);
   syncSize();
   renderWalls();
   loadNotes().catch((e) => { $("status").textContent = String(e); });
@@ -460,7 +477,8 @@ function resetOpenCase() {
   $("inner").value = 25;
   setEdgeInputs("round", 2);
   setHang(true);
-  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, tilts: [0, 0, 0, 0], devices: [], walls: [] };
+  setOverlap(true);
+  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, overlap: true, tilts: [0, 0, 0, 0], devices: [], walls: [] };
   syncSize();
   renderWalls();
 }

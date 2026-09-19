@@ -48,6 +48,12 @@ function lidWZ(l, i, ly) {
   const t = (tiltOf(l, i) * Math.PI) / 180;
   return accumZ(l, i) + ly * Math.sin(t) + wallH(l) * Math.cos(t);
 }
+function hasOverlap(l) {
+  return !l || l.overlap !== false;
+}
+function lidEx(l) {
+  return hasOverlap(l) ? EX : 0;
+}
 function hangXs(cols) {
   const span = (cols || 1) * PITCH;
   if (span > 28) {
@@ -56,13 +62,15 @@ function hangXs(cols) {
   }
   return [span / 2];
 }
-function lidLY0(i) {
-  return (i === 0 ? -WALL - EX : 0);
+function lidLY0(l, i) {
+  const ex = lidEx(l);
+  return (i === 0 ? -WALL - ex : 0);
 }
 function lidLY1(l, i) {
   const last = i === (l.rows || 1) - 1;
   const ylen = PITCH + (i === 0 ? WALL : 0) + (last ? WALL : 0);
-  return (i === 0 ? -WALL : 0) + ylen + (last ? EX : 0);
+  const ex = lidEx(l);
+  return (i === 0 ? -WALL : 0) + ylen + (last ? ex : 0);
 }
 function rowMatrix(l, i) {
   const t = (tiltOf(l, i) * Math.PI) / 180;
@@ -230,11 +238,12 @@ function addCutoutMarkers(parent, cx, cy, z, cuts) {
 function lidWithHoles(l, inner) {
   const cols = l.cols;
   const rows = l.rows;
-  const w = cols * PITCH + 2 * WALL + 2 * EX;
-  const d = rows * PITCH + 2 * WALL + 2 * EX;
+  const ex = lidEx(l);
+  const w = cols * PITCH + 2 * WALL + 2 * ex;
+  const d = rows * PITCH + 2 * WALL + 2 * ex;
   const shape = new THREE.Shape();
   const e = Math.min(Number.isFinite(l.edge_mm) ? l.edge_mm : 2, 6);
-  roundedRectPath(shape, -WALL - EX, -WALL - EX, w, d, l.edge_style === "square" ? 0 : e);
+  roundedRectPath(shape, -WALL - ex, -WALL - ex, w, d, l.edge_style === "square" ? 0 : e);
   punchDeviceHoles(shape, l, null);
   const geo = new THREE.ExtrudeGeometry(shape, { depth: TOP, bevelEnabled: false, curveSegments: 12 });
   const mesh = new THREE.Mesh(
@@ -248,10 +257,11 @@ function lidWithHoles(l, inner) {
 function lidRowWithHoles(l, i, inner) {
   const cols = l.cols;
   const rows = l.rows;
-  const y0 = i === 0 ? -WALL - EX : 0;
-  const y1 = PITCH + (i === rows - 1 ? WALL + EX : 0);
+  const ex = lidEx(l);
+  const y0 = i === 0 ? -WALL - ex : 0;
+  const y1 = PITCH + (i === rows - 1 ? WALL + ex : 0);
   const shape = new THREE.Shape();
-  roundedRectPath(shape, -WALL - EX, y0, cols * PITCH + 2 * WALL + 2 * EX, y1 - y0, 0);
+  roundedRectPath(shape, -WALL - ex, y0, cols * PITCH + 2 * WALL + 2 * ex, y1 - y0, 0);
   punchDeviceHoles(shape, l, i);
   const geo = new THREE.ExtrudeGeometry(shape, { depth: TOP, bevelEnabled: false, curveSegments: 12 });
   const mesh = new THREE.Mesh(
@@ -440,44 +450,49 @@ function build(l) {
   const skirtMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
   const zSk = BOT + inner - SKIRT_H / 2;
   const lidPlateMat = new THREE.MeshLambertMaterial({ color: 0xd6dee8 });
+  const ex = lidEx(l);
   if (flat) {
-    const cw = cols * PITCH + 2 * WALL + 2 * EX;
-    const cd = rows * PITCH + 2 * WALL + 2 * EX;
-    box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, -WALL - FIT - SKIRT / 2, zSk, skirtMat);
-    box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, rows * PITCH + WALL + FIT + SKIRT / 2, zSk, skirtMat);
-    box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, -WALL - FIT - SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
-    box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
+    if (hasOverlap(l)) {
+      const cw = cols * PITCH + 2 * WALL + 2 * ex;
+      const cd = rows * PITCH + 2 * WALL + 2 * ex;
+      box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, -WALL - FIT - SKIRT / 2, zSk, skirtMat);
+      box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, rows * PITCH + WALL + FIT + SKIRT / 2, zSk, skirtMat);
+      box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, -WALL - FIT - SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
+      box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
+    }
   } else {
     for (let i = 0; i < rows - 1; i++) {
       const m0 = rowMatrix(l, i);
       const m1 = rowMatrix(l, i + 1);
       hullBoxes(
-        lid, m0, [-WALL - EX, PITCH - 0.05, BOT + inner, cols * PITCH + 2 * WALL + 2 * EX, 0.05, TOP],
-        m1, [-WALL - EX, 0, BOT + inner, cols * PITCH + 2 * WALL + 2 * EX, 0.05, TOP],
+        lid, m0, [-WALL - ex, PITCH - 0.05, BOT + inner, cols * PITCH + 2 * WALL + 2 * ex, 0.05, TOP],
+        m1, [-WALL - ex, 0, BOT + inner, cols * PITCH + 2 * WALL + 2 * ex, 0.05, TOP],
         lidPlateMat
       );
     }
-    const xl = -WALL - EX + SKIRT / 2;
-    const xr = cols * PITCH + WALL + EX - SKIRT / 2;
-    for (let i = 0; i < rows; i++) {
-      const a = { y: lidWY(l, i, lidLY0(i)), z: lidWZ(l, i, lidLY0(i)) };
-      const b = { y: lidWY(l, i, lidLY1(l, i)), z: lidWZ(l, i, lidLY1(l, i)) };
-      zSkirtSeg(lid, xl, a.y, a.z, b.y, b.z, skirtMat);
-      zSkirtSeg(lid, xr, a.y, a.z, b.y, b.z, skirtMat);
+    if (hasOverlap(l)) {
+      const xl = -WALL - ex + SKIRT / 2;
+      const xr = cols * PITCH + WALL + ex - SKIRT / 2;
+      for (let i = 0; i < rows; i++) {
+        const a = { y: lidWY(l, i, lidLY0(l, i)), z: lidWZ(l, i, lidLY0(l, i)) };
+        const b = { y: lidWY(l, i, lidLY1(l, i)), z: lidWZ(l, i, lidLY1(l, i)) };
+        zSkirtSeg(lid, xl, a.y, a.z, b.y, b.z, skirtMat);
+        zSkirtSeg(lid, xr, a.y, a.z, b.y, b.z, skirtMat);
+      }
+      for (let i = 0; i < rows - 1; i++) {
+        const a = { y: lidWY(l, i, lidLY1(l, i)), z: lidWZ(l, i, lidLY1(l, i)) };
+        const b = { y: lidWY(l, i + 1, lidLY0(l, i + 1)), z: lidWZ(l, i + 1, lidLY0(l, i + 1)) };
+        zSkirtSeg(lid, xl, a.y, a.z, b.y, b.z, skirtMat);
+        zSkirtSeg(lid, xr, a.y, a.z, b.y, b.z, skirtMat);
+      }
+      const cw = cols * PITCH + 2 * WALL + 2 * ex;
+      const yf = lidWY(l, 0, lidLY0(l, 0));
+      const zf = lidWZ(l, 0, lidLY0(l, 0));
+      box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, yf + SKIRT / 2, zf - SKIRT_H / 2, skirtMat);
+      const yb = lidWY(l, rows - 1, lidLY1(l, rows - 1));
+      const zb = lidWZ(l, rows - 1, lidLY1(l, rows - 1));
+      box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, yb - SKIRT / 2, zb - SKIRT_H / 2, skirtMat);
     }
-    for (let i = 0; i < rows - 1; i++) {
-      const a = { y: lidWY(l, i, lidLY1(l, i)), z: lidWZ(l, i, lidLY1(l, i)) };
-      const b = { y: lidWY(l, i + 1, lidLY0(i + 1)), z: lidWZ(l, i + 1, lidLY0(i + 1)) };
-      zSkirtSeg(lid, xl, a.y, a.z, b.y, b.z, skirtMat);
-      zSkirtSeg(lid, xr, a.y, a.z, b.y, b.z, skirtMat);
-    }
-    const cw = cols * PITCH + 2 * WALL + 2 * EX;
-    const yf = lidWY(l, 0, lidLY0(0));
-    const zf = lidWZ(l, 0, lidLY0(0));
-    box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, yf + SKIRT / 2, zf - SKIRT_H / 2, skirtMat);
-    const yb = lidWY(l, rows - 1, lidLY1(l, rows - 1));
-    const zb = lidWZ(l, rows - 1, lidLY1(l, rows - 1));
-    box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, yb - SKIRT / 2, zb - SKIRT_H / 2, skirtMat);
   }
 
   if (viewMode === "bottom") g.add(tray);

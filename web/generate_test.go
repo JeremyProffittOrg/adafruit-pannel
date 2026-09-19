@@ -13,7 +13,7 @@ func TestBuildZipIncludesCad(t *testing.T) {
 	body, err := buildZipBytes(Layout{
 		Title: "3 sliders + 2 quad rotaries",
 		Cols:  5, Rows: 4, InnerH: 25,
-		EdgeStyle: "round", EdgeMM: 2, Hang: true,
+		EdgeStyle: "round", EdgeMM: 2, Hang: true, Overlap: true,
 		Tilts: []float64{0, 0, 0, 0},
 		Devices: []PlacedDev{
 			{ID: "neoslider", C: 0, R: 0},
@@ -57,6 +57,9 @@ func TestBuildZipIncludesCad(t *testing.T) {
 	}
 	if !bytes.Contains([]byte(scad), []byte("HANG = 1;")) {
 		t.Fatalf("job scad missing HANG = 1:\n%s", scad)
+	}
+	if !bytes.Contains([]byte(scad), []byte("OVERLAP = 1;")) {
+		t.Fatalf("job scad missing OVERLAP = 1:\n%s", scad)
 	}
 }
 

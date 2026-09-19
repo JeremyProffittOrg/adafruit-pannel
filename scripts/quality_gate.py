@@ -389,7 +389,7 @@ def gate_assemble(layout, tray, lid_print, lid_use=None):
     tray_min, tray_max = tray_v.min(axis=0), tray_v.max(axis=0)
     extra_x = min(tray_min[0] - lid_min[0], lid_max[0] - tray_max[0])
     extra_y = min(tray_min[1] - lid_min[1], lid_max[1] - tray_max[1])
-    if extra_x < SKIRT * 0.6 or extra_y < SKIRT * 0.6:
+    if layout.get("overlap", True) and (extra_x < SKIRT * 0.6 or extra_y < SKIRT * 0.6):
         fails.append(
             f"lid has no outer skirt (overhang x={extra_x:.2f} y={extra_y:.2f} mm, need >= {SKIRT * 0.6:.2f})"
         )
@@ -642,12 +642,13 @@ def gate_enclosure(layout, tray, lid_print, lib, lid_use=None):
             | (lid_verts[:, 1] > layout["rows"] * PITCH + WALL + FIT * 0.5)
         )
     ]
-    if len(skirt_verts) < 20:
-        fails.append("lid skirt does not hang over the tray walls; the joint is open")
-    else:
-        hang = float(zh - skirt_verts[:, 2].min())
-        if hang < 5.0:
-            fails.append(f"lid skirt overlap is {hang:.1f} mm (need >= 5 mm to close the joint)")
+    if layout.get("overlap", True):
+        if len(skirt_verts) < 20:
+            fails.append("lid skirt does not hang over the tray walls; the joint is open")
+        else:
+            hang = float(zh - skirt_verts[:, 2].min())
+            if hang < 5.0:
+                fails.append(f"lid skirt overlap is {hang:.1f} mm (need >= 5 mm to close the joint)")
 
     return fails
 

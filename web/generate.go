@@ -58,6 +58,7 @@ type Layout struct {
 	EdgeStyle string       `json:"edge_style"`
 	EdgeMM    float64      `json:"edge_mm"`
 	Hang      bool         `json:"hang"`
+	Overlap   bool         `json:"overlap"`
 	Devices   []PlacedDev  `json:"devices"`
 	Walls     []PlacedWall `json:"walls"`
 }
@@ -112,6 +113,7 @@ func writeLayout(path, part string, l Layout) error {
 	fmt.Fprintf(&b, "COLS = %d;\nROWS = %d;\nINNER_H = %.3f;\n", l.Cols, l.Rows, l.InnerH)
 	fmt.Fprintf(&b, "EDGE_STYLE = \"%s\";\nEDGE_MM = %.3f;\n", scadEscape(l.EdgeStyle), l.EdgeMM)
 	fmt.Fprintf(&b, "HANG = %d;\n", map[bool]int{true: 1, false: 0}[l.Hang])
+	fmt.Fprintf(&b, "OVERLAP = %d;\n", map[bool]int{true: 1, false: 0}[l.Overlap])
 	b.WriteString("TILTS = [")
 	for i, t := range l.Tilts[:l.Rows] {
 		if i > 0 {
@@ -215,6 +217,13 @@ func rowFlat(l Layout, r int) bool {
 	return t < 0.05 && t > -0.05
 }
 
+func lidBomItem(l Layout) string {
+	if l.Overlap {
+		return "Lid (printed, face on bed, skirt overlaps tray)"
+	}
+	return "Lid (printed, face on bed, flush — no overlap)"
+}
+
 func hangCount(l Layout) int {
 	if !l.Hang {
 		return 0
@@ -298,7 +307,7 @@ type bomLine struct {
 func bomLines(l Layout) []bomLine {
 	out := []bomLine{
 		{1, "Bottom tray (printed)", "print", ""},
-		{1, "Lid (printed, face on bed)", "print", ""},
+		{1, lidBomItem(l), "print", ""},
 	}
 	if n := postCount(l); n > 0 {
 		out = append(out, bomLine{n, "M3 screw from below (tray into lid peg)", "hardware", ""})

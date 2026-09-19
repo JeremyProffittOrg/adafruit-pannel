@@ -36,10 +36,11 @@ C_TILTS    = is_undef(TILTS)      ? [for (i=[0:C_ROWS-1]) 0] : TILTS;
 C_EDGE     = is_undef(EDGE_STYLE) ? "round" : EDGE_STYLE;
 C_EDGE_MM  = is_undef(EDGE_MM)    ? 2.0 : EDGE_MM;
 C_HANG     = is_undef(HANG)       ? 1    : HANG;  // 1 = keyholes in the back wall
+C_OVERLAP  = is_undef(OVERLAP)    ? 1    : OVERLAP; // 1 = lid skirt hangs over the tray
 $fn = 28;
 
 C_WALL_H = C_BOT + C_INNER;
-C_EX     = C_FIT + C_SKIRT;
+C_EX     = (C_OVERLAP != 0) ? (C_FIT + C_SKIRT) : 0;
 
 function tilt_of(i) = (len(C_TILTS) > i) ? C_TILTS[i] : 0;
 function accum_y(i) = (i <= 0) ? 0 : accum_y(i-1) + C_PITCH * cos(tilt_of(i-1));
@@ -401,23 +402,24 @@ module top_lid_flat() {
                 linear_extrude(C_TOP)
                     translate([-C_WALL - C_EX, -C_WALL - C_EX])
                         edge_rect(lid_w(), lid_d());
-            translate([0, 0, C_WALL_H - C_SKIRT_H])
-                linear_extrude(C_SKIRT_H)
-                    difference() {
-                        translate([-C_WALL - C_EX, -C_WALL - C_EX])
-                            edge_rect(lid_w(), lid_d());
-                        translate([-C_WALL - C_FIT, -C_WALL - C_FIT])
-                            edge_rect(case_w() + 2*C_FIT, case_d() + 2*C_FIT);
-                    }
+            if (C_OVERLAP)
+                translate([0, 0, C_WALL_H - C_SKIRT_H])
+                    linear_extrude(C_SKIRT_H)
+                        difference() {
+                            translate([-C_WALL - C_EX, -C_WALL - C_EX])
+                                edge_rect(lid_w(), lid_d());
+                            translate([-C_WALL - C_FIT, -C_WALL - C_FIT])
+                                edge_rect(case_w() + 2*C_FIT, case_d() + 2*C_FIT);
+                        }
             lid_pegs();
             lid_device_bosses();
         }
-        // mouth lead-in: inner opening is 1 mm looser at the skirt lip
-        translate([0, 0, C_WALL_H - C_SKIRT_H - 0.05])
-            linear_extrude(1.5)
-                translate([-C_WALL - C_FIT - C_MOUTH, -C_WALL - C_FIT - C_MOUTH])
-                    square([case_w() + 2*(C_FIT + C_MOUTH),
-                            case_d() + 2*(C_FIT + C_MOUTH)]);
+        if (C_OVERLAP)
+            translate([0, 0, C_WALL_H - C_SKIRT_H - 0.05])
+                linear_extrude(1.5)
+                    translate([-C_WALL - C_FIT - C_MOUTH, -C_WALL - C_FIT - C_MOUTH])
+                        square([case_w() + 2*(C_FIT + C_MOUTH),
+                                case_d() + 2*(C_FIT + C_MOUTH)]);
         lid_device_cuts();
         lid_tap_holes();
     }
@@ -496,8 +498,10 @@ module top_lid_tilted() {
         union() {
             for (i = [0:C_ROWS-1]) row_lid(i);
             lid_kink_fill();
-            world_z_side_skirts();
-            world_z_end_skirts();
+            if (C_OVERLAP) {
+                world_z_side_skirts();
+                world_z_end_skirts();
+            }
             lid_pegs();
             lid_device_bosses();
         }
