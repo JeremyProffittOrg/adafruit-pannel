@@ -40,6 +40,16 @@ func validateLayout(l *Layout) error {
 	if l.FaceTilt < 0 || l.FaceTilt > 45 {
 		return fmt.Errorf("face tilt must be 0 to 45 degrees")
 	}
+	switch l.TiltAxis {
+	case "", "row", "col", "flat":
+	default:
+		return fmt.Errorf("tilt must be flat, by rows, or by columns")
+	}
+	for _, t := range l.Tilts {
+		if t < -45 || t > 45 {
+			return fmt.Errorf("strip tilt must be -45 to 45 degrees")
+		}
+	}
 	if len(l.Devices) > 64 || len(l.Walls) > 32 {
 		return fmt.Errorf("too many parts on this case")
 	}

@@ -24,6 +24,9 @@ function layout() {
 function byId() {
   return window.PANEL_BY_ID || {};
 }
+function isCol(l) {
+  return l && l.tilt_axis === "col";
+}
 function tiltOf(l, i) {
   return (l.tilts && l.tilts[i]) || 0;
 }
@@ -106,6 +109,13 @@ function rowMatrix(l, i) {
   const m = new THREE.Matrix4();
   m.makeRotationX(t);
   m.setPosition(0, accumY(l, i), accumZ(l, i));
+  return m;
+}
+function colMatrix(l, i) {
+  const t = (tiltOf(l, i) * Math.PI) / 180;
+  const m = new THREE.Matrix4();
+  m.makeRotationY(-t);
+  m.setPosition(accumY(l, i), 0, accumZ(l, i));
   return m;
 }
 function hullBoxes(parent, m0, a, m1, b, mat) {
@@ -221,14 +231,21 @@ function placedDevices(l) {
     .filter((x) => x.def && x.def.place !== "none");
 }
 
-function punchDeviceHoles(shape, l, rowFilter) {
+function punchDeviceHoles(shape, l, rowFilter, colFilter) {
   for (const { p, def } of placedDevices(l)) {
     if (def.place === "bottom" || def.place === "wall") continue;
+    const dx = def.cells_x || 1;
     const dy = def.cells_y || 1;
     if (rowFilter != null && !(p.r <= rowFilter && p.r + dy > rowFilter)) continue;
-    const c = rowFilter == null
-      ? { x: (p.c + def.cells_x / 2) * PITCH, y: (p.r + dy / 2) * PITCH }
-      : deviceCenterLocal(p, def, rowFilter);
+    if (colFilter != null && !(p.c <= colFilter && p.c + dx > colFilter)) continue;
+    let c;
+    if (colFilter != null) {
+      c = { x: (p.c - colFilter + dx / 2) * PITCH, y: (p.r + dy / 2) * PITCH };
+    } else if (rowFilter == null) {
+      c = { x: (p.c + dx / 2) * PITCH, y: (p.r + dy / 2) * PITCH };
+    } else {
+      c = deviceCenterLocal(p, def, rowFilter);
+    }
     for (const cut of def.cutouts || []) {
       shape.holes.push(offsetPath(holePath(cut), c.x, c.y));
     }
@@ -325,21 +342,41 @@ function build(l) {
     return m;
   }
 
-  for (let i = 0; i < rows; i++) {
-    const t = (tiltOf(l, i) * Math.PI) / 180;
-    const row = new THREE.Group();
-    row.position.set(0, accumY(l, i), accumZ(l, i));
-    row.rotation.x = t;
-    const y0 = i === 0 ? -WALL : 0;
-    const yl = PITCH + (i === 0 ? WALL : 0) + (i === rows - 1 ? WALL : 0);
-    const cw = cols * PITCH + 2 * WALL;
-    box(row, cw, yl, BOT, cols * PITCH / 2, y0 + yl / 2, BOT / 2);
-    box(row, WALL, yl, H, -WALL / 2, y0 + yl / 2, H / 2);
-    box(row, WALL, yl, H, cols * PITCH + WALL / 2, y0 + yl / 2, H / 2);
-    if (i === 0) box(row, cw, WALL, H, cols * PITCH / 2, -WALL / 2, H / 2);
-    if (i === rows - 1) box(row, cw, WALL, H, cols * PITCH / 2, PITCH + WALL / 2, H / 2);
-    tray.add(row);
-    trayRows[i] = row;
+  const colMode = isCol(l);
+  if (colMode) {
+    const cd = rows * PITCH + 2 * WALL;
+    for (let i = 0; i < cols; i++) {
+      const t = (tiltOf(l, i) * Math.PI) / 180;
+      const col = new THREE.Group();
+      col.position.set(accumY(l, i), 0, accumZ(l, i));
+      col.rotation.y = -t;
+      const x0 = i === 0 ? -WALL : 0;
+      const xl = PITCH + (i === 0 ? WALL : 0) + (i === cols - 1 ? WALL : 0);
+      box(col, xl, cd, BOT, x0 + xl / 2, rows * PITCH / 2, BOT / 2);
+      box(col, xl, WALL, H, x0 + xl / 2, -WALL / 2, H / 2);
+      box(col, xl, WALL, H, x0 + xl / 2, rows * PITCH + WALL / 2, H / 2);
+      if (i === 0) box(col, WALL, cd, H, -WALL / 2, rows * PITCH / 2, H / 2);
+      if (i === cols - 1) box(col, WALL, cd, H, PITCH + WALL / 2, rows * PITCH / 2, H / 2);
+      tray.add(col);
+      trayRows[i] = col;
+    }
+  } else {
+    for (let i = 0; i < rows; i++) {
+      const t = (tiltOf(l, i) * Math.PI) / 180;
+      const row = new THREE.Group();
+      row.position.set(0, accumY(l, i), accumZ(l, i));
+      row.rotation.x = t;
+      const y0 = i === 0 ? -WALL : 0;
+      const yl = PITCH + (i === 0 ? WALL : 0) + (i === rows - 1 ? WALL : 0);
+      const cw = cols * PITCH + 2 * WALL;
+      box(row, cw, yl, BOT, cols * PITCH / 2, y0 + yl / 2, BOT / 2);
+      box(row, WALL, yl, H, -WALL / 2, y0 + yl / 2, H / 2);
+      box(row, WALL, yl, H, cols * PITCH + WALL / 2, y0 + yl / 2, H / 2);
+      if (i === 0) box(row, cw, WALL, H, cols * PITCH / 2, -WALL / 2, H / 2);
+      if (i === rows - 1) box(row, cw, WALL, H, cols * PITCH / 2, PITCH + WALL / 2, H / 2);
+      tray.add(row);
+      trayRows[i] = row;
+    }
   }
   const hangList = Array.isArray(l.hangs)
     ? l.hangs
@@ -354,7 +391,21 @@ function build(l) {
       const pos = (Number(h.pos) || 0) + 0.5;
       const orient = h.orient || "down";
       if (h.side === "bottom") continue;
-      if (h.side === "back" && trayRows[rows - 1]) {
+      if (colMode) {
+        if (h.side === "left" && trayRows[0]) {
+          addHangMarker(trayRows[0], -WALL / 2, pos * PITCH, zc, Math.PI / 2, orient, cutMat);
+        } else if (h.side === "right" && trayRows[cols - 1]) {
+          addHangMarker(trayRows[cols - 1], PITCH + WALL / 2, pos * PITCH, zc, -Math.PI / 2, orient, cutMat);
+        } else if (h.side === "front") {
+          const ci = Math.min(cols - 1, Math.max(0, Math.floor(h.pos || 0)));
+          const lx = (pos - ci) * PITCH;
+          if (trayRows[ci]) addHangMarker(trayRows[ci], lx, -WALL / 2, zc, Math.PI, orient, cutMat);
+        } else if (h.side === "back") {
+          const ci = Math.min(cols - 1, Math.max(0, Math.floor(h.pos || 0)));
+          const lx = (pos - ci) * PITCH;
+          if (trayRows[ci]) addHangMarker(trayRows[ci], lx, rows * PITCH + WALL / 2, zc, 0, orient, cutMat);
+        }
+      } else if (h.side === "back" && trayRows[rows - 1]) {
         addHangMarker(trayRows[rows - 1], pos * PITCH, PITCH + WALL / 2, zc, 0, orient, cutMat);
       } else if (h.side === "front" && trayRows[0]) {
         addHangMarker(trayRows[0], pos * PITCH, -WALL / 2, zc, Math.PI, orient, cutMat);
@@ -369,17 +420,45 @@ function build(l) {
       }
     }
   }
-  for (let i = 0; i < rows - 1; i++) {
-    const m0 = rowMatrix(l, i);
-    const m1 = rowMatrix(l, i + 1);
-    hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, WALL, 0.05, H], m1, [-WALL, 0, 0, WALL, 0.05, H], wallMat);
-    hullBoxes(tray, m0, [cols * PITCH, PITCH - 0.05, 0, WALL, 0.05, H], m1, [cols * PITCH, 0, 0, WALL, 0.05, H], wallMat);
-    hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, cols * PITCH + 2 * WALL, 0.05, BOT], m1, [-WALL, 0, 0, cols * PITCH + 2 * WALL, 0.05, BOT], wallMat);
+  if (colMode) {
+    for (let i = 0; i < cols - 1; i++) {
+      const m0 = colMatrix(l, i);
+      const m1 = colMatrix(l, i + 1);
+      hullBoxes(tray, m0, [PITCH - 0.05, -WALL, 0, 0.05, WALL, H], m1, [0, -WALL, 0, 0.05, WALL, H], wallMat);
+      hullBoxes(tray, m0, [PITCH - 0.05, rows * PITCH, 0, 0.05, WALL, H], m1, [0, rows * PITCH, 0, 0.05, WALL, H], wallMat);
+      hullBoxes(tray, m0, [PITCH - 0.05, -WALL, 0, 0.05, rows * PITCH + 2 * WALL, BOT], m1, [0, -WALL, 0, 0.05, rows * PITCH + 2 * WALL, BOT], wallMat);
+    }
+  } else {
+    for (let i = 0; i < rows - 1; i++) {
+      const m0 = rowMatrix(l, i);
+      const m1 = rowMatrix(l, i + 1);
+      hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, WALL, 0.05, H], m1, [-WALL, 0, 0, WALL, 0.05, H], wallMat);
+      hullBoxes(tray, m0, [cols * PITCH, PITCH - 0.05, 0, WALL, 0.05, H], m1, [cols * PITCH, 0, 0, WALL, 0.05, H], wallMat);
+      hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, cols * PITCH + 2 * WALL, 0.05, BOT], m1, [-WALL, 0, 0, cols * PITCH + 2 * WALL, 0.05, BOT], wallMat);
+    }
   }
 
-  const flat = (l.tilts || []).every((v) => !v);
+  const flat = (l.tilt_axis === "flat") || (l.tilts || []).every((v) => !v);
   if (flat) {
     lid.add(lidWithHoles(l, inner));
+  } else if (colMode) {
+    for (let i = 0; i < cols; i++) {
+      const t = (tiltOf(l, i) * Math.PI) / 180;
+      const lidCol = new THREE.Group();
+      lidCol.position.set(accumY(l, i), 0, accumZ(l, i));
+      lidCol.rotation.y = -t;
+      const shape = new THREE.Shape();
+      const x0 = i === 0 ? -WALL - lidEx(l) : 0;
+      const x1 = PITCH + (i === cols - 1 ? WALL + lidEx(l) : 0);
+      roundedRectPath(shape, x0, -WALL - lidEx(l), x1 - x0, rows * PITCH + 2 * WALL + 2 * lidEx(l), 0);
+      punchDeviceHoles(shape, l, null, i);
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: TOP, bevelEnabled: false, curveSegments: 8 });
+      const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0xd6dee8, side: THREE.DoubleSide }));
+      mesh.position.z = BOT + inner;
+      lidCol.add(mesh);
+      lid.add(lidCol);
+      lidRows[i] = lidCol;
+    }
   } else {
     for (let i = 0; i < rows; i++) {
       const t = (tiltOf(l, i) * Math.PI) / 180;
@@ -394,9 +473,12 @@ function build(l) {
 
   const zCut = BOT + inner + TOP / 2;
   for (const { p, def } of placedDevices(l)) {
-    const parent = (!flat && lidRows[p.r]) ? lidRows[p.r] : lid;
-    const loc = (!flat && lidRows[p.r])
-      ? deviceCenterLocal(p, def, p.r)
+    const strip = colMode ? p.c : p.r;
+    const parent = (!flat && lidRows[strip]) ? lidRows[strip] : lid;
+    const loc = (!flat && lidRows[strip])
+      ? (colMode
+        ? { x: (p.c - strip + def.cells_x / 2) * PITCH, y: (p.r + def.cells_y / 2) * PITCH }
+        : deviceCenterLocal(p, def, p.r))
       : { x: (p.c + def.cells_x / 2) * PITCH, y: (p.r + def.cells_y / 2) * PITCH };
     if (def.place !== "bottom" && def.place !== "wall") {
       addCutoutMarkers(parent, loc.x, loc.y, zCut, def.cutouts);

@@ -36,6 +36,7 @@ C_PART     = is_undef(PART)       ? "preview" : PART;
 C_NDEV     = is_undef(NDEV)       ? 0 : NDEV;
 C_NWALL    = is_undef(NWALL)      ? 0 : NWALL;
 C_TILTS    = is_undef(TILTS)      ? [for (i=[0:C_ROWS-1]) 0] : TILTS;
+C_AXIS     = is_undef(TILT_AXIS)  ? "row" : TILT_AXIS;
 C_EDGE     = is_undef(EDGE_STYLE) ? "round" : EDGE_STYLE;
 C_EDGE_MM  = is_undef(EDGE_MM)    ? 2.0 : EDGE_MM;
 C_HANG     = is_undef(HANG)       ? 1    : HANG;  // legacy: 1 = default back keyholes
@@ -57,6 +58,8 @@ module faced() {
                 children();
 }
 
+function is_col() = C_AXIS == "col";
+function n_strip() = is_col() ? C_COLS : C_ROWS;
 function tilt_of(i) = (len(C_TILTS) > i) ? C_TILTS[i] : 0;
 function accum_y(i) = (i <= 0) ? 0 : accum_y(i-1) + C_PITCH * cos(tilt_of(i-1));
 function accum_z(i) = (i <= 0) ? 0 : accum_z(i-1) + C_PITCH * sin(tilt_of(i-1));
@@ -65,7 +68,9 @@ function wz(i, ly) = accum_z(i) + ly * sin(tilt_of(i));
 // Lid-plane world XY/Z: rotate([tilt,0,0]) shifts Y by -z*sin(tilt).
 function lid_wy(i, ly) = wy(i, ly) - C_WALL_H * sin(tilt_of(i));
 function lid_wz(i, ly) = wz(i, ly) + C_WALL_H * cos(tilt_of(i));
-function is_flat() = max([for (t = C_TILTS) abs(t)]) < 0.05;
+function lid_wx(i, lx) = accum_y(i) + lx * cos(tilt_of(i)) + C_WALL_H * sin(tilt_of(i));
+function lid_wzc(i, lx) = accum_z(i) - lx * sin(tilt_of(i)) + C_WALL_H * cos(tilt_of(i));
+function is_flat() = (C_AXIS == "flat") || max([for (t = C_TILTS) abs(t)]) < 0.05;
 
 module at_row(i, j=0, ty=0, tz=0) {
     if (j == i) {
@@ -76,12 +81,23 @@ module at_row(i, j=0, ty=0, tz=0) {
     }
 }
 
+module at_col(i, j=0, tx=0, tz=0) {
+    if (j == i) {
+        translate([tx, 0, tz]) rotate([0, -tilt_of(i), 0]) children();
+    } else if (j < C_COLS) {
+        a = tilt_of(j);
+        at_col(i, j+1, tx + C_PITCH*cos(a), tz + C_PITCH*sin(a)) children();
+    }
+}
+
 function case_w() = C_COLS*C_PITCH + 2*C_WALL;
 function case_d() = C_ROWS*C_PITCH + 2*C_WALL;
 function lid_w()  = case_w() + 2*C_EX;
 function lid_d()  = case_d() + 2*C_EX;
 function row_y0(i) = (i==0) ? -C_WALL : 0;
 function row_ylen(i) = C_PITCH + (i==0?C_WALL:0) + (i==C_ROWS-1?C_WALL:0);
+function col_x0(i) = (i==0) ? -C_WALL : 0;
+function col_xlen(i) = C_PITCH + (i==0?C_WALL:0) + (i==C_COLS-1?C_WALL:0);
 
 module edge_rect(w, h) {
     e = min(C_EDGE_MM, min(w,h)/2 - 0.2);
@@ -102,6 +118,32 @@ module edge_rect(w, h) {
 // over the previous row's wall and blocks dropping the lid on.
 module each_post() {
     ins = C_PEG_INSET;
+    if (is_col()) {
+        for (c = [0:C_COLS-1]) {
+            if (abs(tilt_of(c)) < 0.05) {
+                x = lid_wx(c, C_PITCH/2);
+                translate([x, -ins, 0]) children();
+                translate([x, C_ROWS*C_PITCH + ins, 0]) children();
+            }
+        }
+        if (abs(tilt_of(0)) < 0.05) {
+            xf = lid_wx(0, -ins);
+            if (C_ROWS > 1) {
+                for (r = [1:C_ROWS-1]) translate([xf, r * C_PITCH, 0]) children();
+            } else {
+                translate([xf, C_PITCH/2, 0]) children();
+            }
+        }
+        if (abs(tilt_of(C_COLS-1)) < 0.05) {
+            xb = lid_wx(C_COLS-1, C_PITCH + ins);
+            if (C_ROWS > 1) {
+                for (r = [1:C_ROWS-1]) translate([xb, r * C_PITCH, 0]) children();
+            } else {
+                translate([xb, C_PITCH/2, 0]) children();
+            }
+        }
+        // skip the row-axis posts
+    } else
     for (r = [0:C_ROWS-1]) {
         if (abs(tilt_of(r)) < 0.05) {
             y = lid_wy(r, C_PITCH/2);
@@ -109,6 +151,7 @@ module each_post() {
             translate([C_COLS*C_PITCH + ins, y, 0]) children();
         }
     }
+    if (!is_col()) {
     if (abs(tilt_of(0)) < 0.05) {
         yf = lid_wy(0, -ins);
         if (C_COLS > 1) {
@@ -125,10 +168,39 @@ module each_post() {
             translate([C_PITCH/2, yb, 0]) children();
         }
     }
+    }
 }
 
 module each_post_lid() {
     ins = C_PEG_INSET;
+    if (is_col()) {
+        for (c = [0:C_COLS-1]) {
+            if (abs(tilt_of(c)) < 0.05) {
+                x = lid_wx(c, C_PITCH/2);
+                z = lid_wzc(c, C_PITCH/2);
+                translate([x, -ins, z]) children();
+                translate([x, C_ROWS*C_PITCH + ins, z]) children();
+            }
+        }
+        if (abs(tilt_of(0)) < 0.05) {
+            xf = lid_wx(0, -ins);
+            zf = lid_wzc(0, -ins);
+            if (C_ROWS > 1) {
+                for (r = [1:C_ROWS-1]) translate([xf, r * C_PITCH, zf]) children();
+            } else {
+                translate([xf, C_PITCH/2, zf]) children();
+            }
+        }
+        if (abs(tilt_of(C_COLS-1)) < 0.05) {
+            xb = lid_wx(C_COLS-1, C_PITCH + ins);
+            zb = lid_wzc(C_COLS-1, C_PITCH + ins);
+            if (C_ROWS > 1) {
+                for (r = [1:C_ROWS-1]) translate([xb, r * C_PITCH, zb]) children();
+            } else {
+                translate([xb, C_PITCH/2, zb]) children();
+            }
+        }
+    } else
     for (r = [0:C_ROWS-1]) {
         if (abs(tilt_of(r)) < 0.05) {
             y = lid_wy(r, C_PITCH/2);
@@ -137,6 +209,7 @@ module each_post_lid() {
             translate([C_COLS*C_PITCH + ins, y, z]) children();
         }
     }
+    if (!is_col()) {
     if (abs(tilt_of(0)) < 0.05) {
         yf = lid_wy(0, -ins);
         zf = lid_wz(0, -ins);
@@ -154,6 +227,7 @@ module each_post_lid() {
         } else {
             translate([C_PITCH/2, yb, zb]) children();
         }
+    }
     }
 }
 
@@ -240,6 +314,133 @@ module row_cavity(i) {
             cube([C_COLS*C_PITCH, C_PITCH, C_INNER + 1]);
 }
 
+module col_outer_2d(i) {
+    translate([col_x0(i), -C_WALL])
+        edge_rect(col_xlen(i), case_d());
+}
+
+module col_lid_outer_2d(i) {
+    x0 = col_x0(i) - (i==0 ? C_EX : 0);
+    xl = col_xlen(i) + (i==0?C_EX:0) + (i==C_COLS-1?C_EX:0);
+    translate([x0, -C_WALL - C_EX])
+        edge_rect(xl, lid_d());
+}
+
+module col_floor(i) {
+    at_col(i) linear_extrude(C_BOT) col_outer_2d(i);
+}
+
+module col_walls(i) {
+    at_col(i) difference() {
+        linear_extrude(C_WALL_H) col_outer_2d(i);
+        translate([0, 0, -0.1])
+            linear_extrude(C_WALL_H + 0.2)
+                square([C_PITCH, C_ROWS*C_PITCH]);
+    }
+}
+
+module col_kink_fill() {
+    if (C_COLS > 1)
+        for (i = [0:C_COLS-2]) {
+            hull() {
+                at_col(i) translate([C_PITCH-0.05, -C_WALL, 0])
+                    cube([0.05, C_WALL, C_WALL_H]);
+                at_col(i+1) translate([0, -C_WALL, 0])
+                    cube([0.05, C_WALL, C_WALL_H]);
+            }
+            hull() {
+                at_col(i) translate([C_PITCH-0.05, C_ROWS*C_PITCH, 0])
+                    cube([0.05, C_WALL, C_WALL_H]);
+                at_col(i+1) translate([0, C_ROWS*C_PITCH, 0])
+                    cube([0.05, C_WALL, C_WALL_H]);
+            }
+            hull() {
+                at_col(i) translate([C_PITCH-0.05, -C_WALL, 0])
+                    cube([0.05, case_d(), C_BOT]);
+                at_col(i+1) translate([0, -C_WALL, 0])
+                    cube([0.05, case_d(), C_BOT]);
+            }
+        }
+}
+
+module col_cavity(i) {
+    at_col(i)
+        translate([0, 0, C_BOT])
+            cube([C_PITCH, C_ROWS*C_PITCH, C_INNER + 1]);
+}
+
+module col_cavity_kink() {
+    if (C_COLS > 1)
+        for (i = [0:C_COLS-2])
+            hull() {
+                at_col(i) translate([C_PITCH-0.05, 0, C_BOT])
+                    cube([0.05, C_ROWS*C_PITCH, C_INNER + 1]);
+                at_col(i+1) translate([0, 0, C_BOT])
+                    cube([0.05, C_ROWS*C_PITCH, C_INNER + 1]);
+            }
+}
+
+module col_lid(i) {
+    at_col(i)
+        translate([0, 0, C_WALL_H])
+            linear_extrude(C_TOP) col_lid_outer_2d(i);
+}
+
+module col_lid_kink() {
+    if (C_COLS > 1)
+        for (i = [0:C_COLS-2]) {
+            hull() {
+                at_col(i) translate([C_PITCH-0.05, -C_WALL - C_EX, C_WALL_H])
+                    cube([0.05, lid_d(), C_TOP]);
+                at_col(i+1) translate([0, -C_WALL - C_EX, C_WALL_H])
+                    cube([0.05, lid_d(), C_TOP]);
+            }
+        }
+}
+
+function lid_lx0(i) = col_x0(i) - (i==0 ? C_EX : 0);
+function lid_lx1(i) = col_x0(i) + col_xlen(i) + (i==C_COLS-1 ? C_EX : 0);
+
+module wz_skirt_post_x(y, col, lx, z_off=0) {
+    translate([lid_wx(col, lx), y, lid_wzc(col, lx) - C_SKIRT_H + z_off])
+        cube([1.0, C_SKIRT, C_SKIRT_H]);
+}
+
+module world_z_col_skirts() {
+    yf = -C_WALL - C_EX;
+    yb = C_ROWS*C_PITCH + C_WALL + C_FIT;
+    for (i = [0:C_COLS-1]) {
+        hull() {
+            wz_skirt_post_x(yf, i, lid_lx0(i));
+            wz_skirt_post_x(yf, i, lid_lx1(i));
+        }
+        hull() {
+            wz_skirt_post_x(yb, i, lid_lx0(i));
+            wz_skirt_post_x(yb, i, lid_lx1(i));
+        }
+    }
+    if (C_COLS > 1)
+        for (i = [0:C_COLS-2]) {
+            hull() {
+                wz_skirt_post_x(yf, i, lid_lx1(i));
+                wz_skirt_post_x(yf, i+1, lid_lx0(i+1));
+            }
+            hull() {
+                wz_skirt_post_x(yb, i, lid_lx1(i));
+                wz_skirt_post_x(yb, i+1, lid_lx0(i+1));
+            }
+        }
+    xl = lid_wx(0, lid_lx0(0));
+    zl = lid_wzc(0, lid_lx0(0));
+    translate([xl, -C_WALL - C_EX, zl - C_SKIRT_H])
+        cube([C_SKIRT, lid_d(), C_SKIRT_H]);
+    i = C_COLS-1;
+    xr = lid_wx(i, lid_lx1(i));
+    zr = lid_wzc(i, lid_lx1(i));
+    translate([xr - C_SKIRT, -C_WALL - C_EX, zr - C_SKIRT_H])
+        cube([C_SKIRT, lid_d(), C_SKIRT_H]);
+}
+
 module cavity_kink_fill() {
     if (C_ROWS > 1)
         for (i = [0:C_ROWS-2])
@@ -256,9 +457,10 @@ function dev_place_is_bottom(id) = dev_is_bottom(id);
 module at_device(id, c, r) {
     cx = (c + dev_cells_x(id)/2) * C_PITCH;
     cy = (r + dev_cells_y(id)/2) * C_PITCH;
-    at_row(r)
-        translate([cx, cy - r*C_PITCH, 0])
-            children();
+    if (is_col())
+        at_col(c) translate([cx - c*C_PITCH, cy, 0]) children();
+    else
+        at_row(r) translate([cx, cy - r*C_PITCH, 0]) children();
 }
 
 module wall_origin(side, pos) {
@@ -449,14 +651,27 @@ module bottom_tray_flat() {
 module bottom_tray_tilted() {
     difference() {
         union() {
-            for (i = [0:C_ROWS-1]) {
-                row_floor(i);
-                row_walls(i);
+            if (is_col()) {
+                for (i = [0:C_COLS-1]) {
+                    col_floor(i);
+                    col_walls(i);
+                }
+                col_kink_fill();
+            } else {
+                for (i = [0:C_ROWS-1]) {
+                    row_floor(i);
+                    row_walls(i);
+                }
+                side_kink_fill();
             }
-            side_kink_fill();
         }
-        for (i = [0:C_ROWS-1]) row_cavity(i);
-        cavity_kink_fill();
+        if (is_col()) {
+            for (i = [0:C_COLS-1]) col_cavity(i);
+            col_cavity_kink();
+        } else {
+            for (i = [0:C_ROWS-1]) row_cavity(i);
+            cavity_kink_fill();
+        }
         tray_fasteners();
         tray_wall_cuts();
         hang_holes();
@@ -598,11 +813,17 @@ module lid_kink_fill() {
 module top_lid_tilted() {
     difference() {
         union() {
-            for (i = [0:C_ROWS-1]) row_lid(i);
-            lid_kink_fill();
-            if (C_OVERLAP) {
-                world_z_side_skirts();
-                world_z_end_skirts();
+            if (is_col()) {
+                for (i = [0:C_COLS-1]) col_lid(i);
+                col_lid_kink();
+                if (C_OVERLAP) world_z_col_skirts();
+            } else {
+                for (i = [0:C_ROWS-1]) row_lid(i);
+                lid_kink_fill();
+                if (C_OVERLAP) {
+                    world_z_side_skirts();
+                    world_z_end_skirts();
+                }
             }
             lid_pegs();
             lid_device_bosses();
@@ -618,7 +839,10 @@ module top_lid_use() {
 }
 
 function lid_print_z() =
-    max([for (i = [0:C_ROWS-1])
+    is_col()
+    ? max([for (i = [0:C_COLS-1])
+        max(lid_wzc(i, lid_lx0(i)) + C_TOP, lid_wzc(i, lid_lx1(i)) + C_TOP)])
+    : max([for (i = [0:C_ROWS-1])
         let (
             y0 = row_y0(i) - (i==0 ? C_EX : 0),
             y1 = row_y0(i) + row_ylen(i) + (i==C_ROWS-1 ? C_EX : 0)

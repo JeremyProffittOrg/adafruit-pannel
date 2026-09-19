@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=19">
+  <link rel="stylesheet" href="/style.css?v=20">
   <script type="importmap">
   {
     "imports": {
@@ -113,11 +113,22 @@
             </td>
           </tr>
         </tbody>
-        <tbody>
-          <tr><th colspan="2" class="section">Row tilt (deg)</th></tr>
-        </tbody>
-        <tbody id="tilts"></tbody>
       </table>
+      <h2>Tilt wizard</h2>
+      <p class="legend">Fold the lid by rows (front to back) or by columns (left to right). Face tilt above is the sitting or hanging wedge, not this fold.</p>
+      <label>Fold
+        <select id="tilt-axis">
+          <option value="flat" selected>flat — no fold</option>
+          <option value="row">by rows — front to back</option>
+          <option value="col">by columns — left to right</option>
+        </select>
+      </label>
+      <p id="tilt-help" class="legend"></p>
+      <div id="tilt-strips"></div>
+      <p id="tilt-actions" hidden>
+        <button type="button" id="tilt-all-0">All 0°</button>
+        <button type="button" id="tilt-all-30">All +30°</button>
+      </p>
       <h2>Hang holes</h2>
       <p class="legend">Keyholes through a wall or the sitting foot. Slot direction is which way the case drops onto the screws. Face tilt plus bottom holes: hang the foot on the wall, thick end up, so the panel leans out.</p>
       <select id="hang-side">
@@ -208,7 +219,7 @@
       <span>Library</span>
     </button>
   </nav>
-  <script src="/app.js?v=19"></script>
-  <script type="module" src="/preview.js?v=19"></script>
+  <script src="/app.js?v=20"></script>
+  <script type="module" src="/preview.js?v=20"></script>
 </body>
 </html>

@@ -58,6 +58,7 @@ type Layout struct {
 	Rows      int          `json:"rows"`
 	InnerH    float64      `json:"inner_h"`
 	Tilts     []float64    `json:"tilts"`
+	TiltAxis  string       `json:"tilt_axis"`
 	EdgeStyle string       `json:"edge_style"`
 	EdgeMM    float64      `json:"edge_mm"`
 	Hang      bool         `json:"hang"`
@@ -116,10 +117,16 @@ func normalizeLayout(l *Layout) {
 	if l.InnerH < 8 {
 		l.InnerH = 8
 	}
-	if len(l.Tilts) < l.Rows {
-		for len(l.Tilts) < l.Rows {
+	n := tiltCount(*l)
+	if len(l.Tilts) < n {
+		for len(l.Tilts) < n {
 			l.Tilts = append(l.Tilts, 0)
 		}
+	}
+	switch l.TiltAxis {
+	case "col", "row", "flat":
+	default:
+		l.TiltAxis = "row"
 	}
 	if l.EdgeStyle == "" {
 		l.EdgeStyle = "round"
@@ -172,10 +179,23 @@ func writeLayout(path, part string, l Layout) error {
 		}
 		b.WriteString("];\n")
 	}
+	axis := l.TiltAxis
+	if axis == "" {
+		axis = "row"
+	}
+	fmt.Fprintf(&b, "TILT_AXIS = \"%s\";\n", scadEscape(axis))
+	nTilt := tiltCount(l)
 	b.WriteString("TILTS = [")
-	for i, t := range l.Tilts[:l.Rows] {
+	for i := 0; i < nTilt; i++ {
 		if i > 0 {
 			b.WriteString(", ")
+		}
+		t := 0.0
+		if i < len(l.Tilts) {
+			t = l.Tilts[i]
+		}
+		if axis == "flat" {
+			t = 0
 		}
 		fmt.Fprintf(&b, "%.3f", t)
 	}
@@ -327,6 +347,19 @@ func renderPart(exe, layout, out, part string) error {
 		return fmt.Errorf("openscad %s: %w\n%s", part, err, outb)
 	}
 	return nil
+}
+
+func tiltCount(l Layout) int {
+	if l.TiltAxis == "col" {
+		if l.Cols < 1 {
+			return 1
+		}
+		return l.Cols
+	}
+	if l.Rows < 1 {
+		return 1
+	}
+	return l.Rows
 }
 
 func rowFlat(l Layout, r int) bool {

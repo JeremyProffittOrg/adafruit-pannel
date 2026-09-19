@@ -8,6 +8,7 @@ let layout = {
   edge_mm: 2,
   overlap: true,
   face_tilt: 0,
+  tilt_axis: "flat",
   tilts: [0, 0, 0, 0],
   devices: [],
   walls: [],
@@ -43,6 +44,7 @@ function cloneLayout(src) {
   l.edge_mm = numOr(l.edge_mm, 2);
   l.overlap = l.overlap !== false;
   l.face_tilt = Math.max(0, Math.min(45, numOr(l.face_tilt, 0)));
+  if (l.tilt_axis !== "row" && l.tilt_axis !== "col") l.tilt_axis = "flat";
   if (!Array.isArray(l.hangs)) {
     l.hangs = l.hang === false ? [] : defaultHangs(l.cols);
   }
@@ -116,8 +118,7 @@ function ensureGrid(c, r, dx, dy) {
     grew = true;
   }
   if (grew) {
-    while (layout.tilts.length < layout.rows) layout.tilts.push(0);
-    layout.tilts.length = layout.rows;
+    padTilts();
     renderTilts();
   }
   return true;
@@ -243,33 +244,71 @@ function duplicatePlaced(d) {
   placeDevice(d.id, at.c, at.r);
 }
 
+function nStrips() {
+  return layout.tilt_axis === "col" ? layout.cols : layout.rows;
+}
+
+function padTilts() {
+  if (!Array.isArray(layout.tilts)) layout.tilts = [];
+  const n = Math.max(1, nStrips());
+  while (layout.tilts.length < n) layout.tilts.push(0);
+  if (layout.tilt_axis === "flat") {
+    for (let i = 0; i < n; i++) layout.tilts[i] = 0;
+  }
+}
+
+const TILT_ANGLES = [-30, -15, 0, 15, 30, 45];
+
 function renderTilts() {
-  const box = $("tilts");
+  padTilts();
+  const axis = $("tilt-axis");
+  if (axis) {
+    const v = layout.tilt_axis === "row" || layout.tilt_axis === "col" ? layout.tilt_axis : "flat";
+    axis.value = v;
+  }
+  const help = $("tilt-help");
+  const box = $("tilt-strips");
+  const actions = $("tilt-actions");
+  if (!box) return;
   box.innerHTML = "";
-  layout.tilts.length = layout.rows;
-  for (let i = 0; i < layout.rows; i++) {
-    if (layout.tilts[i] == null) layout.tilts[i] = 0;
-    const tr = document.createElement("tr");
-    const th = document.createElement("th");
-    const lab = document.createElement("label");
-    lab.htmlFor = `tilt-${i}`;
-    lab.textContent = `Row ${i}`;
-    th.appendChild(lab);
-    const td = document.createElement("td");
-    const inp = document.createElement("input");
-    inp.id = `tilt-${i}`;
-    inp.type = "number";
-    inp.value = layout.tilts[i];
-    inp.step = 5;
-    inp.addEventListener("input", () => {
-      layout.tilts[i] = Number(inp.value) || 0;
-      bumpPreview();
-      renderBOM();
-    });
-    td.appendChild(inp);
-    tr.appendChild(th);
-    tr.appendChild(td);
-    box.appendChild(tr);
+  const mode = layout.tilt_axis || "flat";
+  if (mode === "flat") {
+    if (help) help.textContent = "Lid is one flat plane. Choose rows or columns to fold it.";
+    if (actions) actions.hidden = true;
+    return;
+  }
+  if (actions) actions.hidden = false;
+  if (help) {
+    help.textContent = mode === "col"
+      ? "Each column is a strip from front to back. Plus degrees lift the right edge of that strip."
+      : "Each row is a strip from left to right. Plus degrees lift the back edge of that strip.";
+  }
+  const n = nStrips();
+  for (let i = 0; i < n; i++) {
+    const row = document.createElement("div");
+    row.className = "tilt-strip";
+    const lab = document.createElement("span");
+    if (mode === "col") {
+      lab.textContent = i === 0 ? `Col ${i} left` : (i === n - 1 ? `Col ${i} right` : `Col ${i}`);
+    } else {
+      lab.textContent = i === 0 ? `Row ${i} front` : (i === n - 1 ? `Row ${i} back` : `Row ${i}`);
+    }
+    row.appendChild(lab);
+    const cur = Number(layout.tilts[i]) || 0;
+    for (const a of TILT_ANGLES) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `${a}°`;
+      if (a === cur) b.classList.add("on");
+      b.addEventListener("click", () => {
+        layout.tilts[i] = a;
+        renderTilts();
+        bumpPreview();
+        renderBOM();
+      });
+      row.appendChild(b);
+    }
+    box.appendChild(row);
   }
 }
 
@@ -497,6 +536,27 @@ $("edge").addEventListener("change", syncSize);
 $("edgemm").addEventListener("input", syncSize);
 $("overlap")?.addEventListener("change", syncSize);
 $("facetilt")?.addEventListener("change", syncSize);
+$("tilt-axis")?.addEventListener("change", () => {
+  layout.tilt_axis = $("tilt-axis").value || "flat";
+  padTilts();
+  renderTilts();
+  bumpPreview();
+  renderBOM();
+});
+$("tilt-all-0")?.addEventListener("click", () => {
+  padTilts();
+  for (let i = 0; i < nStrips(); i++) layout.tilts[i] = 0;
+  renderTilts();
+  bumpPreview();
+  renderBOM();
+});
+$("tilt-all-30")?.addEventListener("click", () => {
+  padTilts();
+  for (let i = 0; i < nStrips(); i++) layout.tilts[i] = 30;
+  renderTilts();
+  bumpPreview();
+  renderBOM();
+});
 $("devfilter").addEventListener("input", fillDevices);
 $("add-wall").addEventListener("click", () => {
   layout.walls.push({
@@ -582,7 +642,7 @@ $("preset-sq").addEventListener("click", () => {
   setFaceTilt(0);
   clearNotes();
   layout = {
-    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilts: [0, 0, 0, 0], walls: [],
+    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], walls: [],
     hangs: defaultHangs(5),
     devices: [
       { id: "neoslider", c: 0, r: 0 },
@@ -607,7 +667,7 @@ $("preset-tilt").addEventListener("click", () => {
   setFaceTilt(0);
   clearNotes();
   layout = {
-    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0,
+    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilt_axis: "row",
     tilts: [0, 0, 0, 30, 30, -30],
     devices: [],
     walls: [],
@@ -807,7 +867,7 @@ function resetOpenCase() {
   setEdgeInputs("round", 2);
   setOverlap(true);
   setFaceTilt(0);
-  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
+  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
   syncSize();
   renderWalls();
   renderHangs();
