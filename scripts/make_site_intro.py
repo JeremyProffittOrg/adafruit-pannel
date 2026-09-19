@@ -12,7 +12,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "site-intro.mp4"
 POSTER = ROOT / "docs" / "preview" / "site-intro-poster.png"
-W, H, FPS, SECONDS = 1280, 720, 24, 60
+W, H, FPS, SECONDS = 1280, 720, 24, 78
 NFRAMES = FPS * SECONDS
 FFMPEG = r"C:\Users\Jeremy\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.2-full_build\bin\ffmpeg.exe"
 URL = "https://ap.jeremy.ninja/"
@@ -74,37 +74,37 @@ def main():
         time.sleep(2.5)
         shots = []
 
-        shots.append((grab(page, "Panel case builder on the web", "1.00 in grid. Closed tray. Shoebox lid. Sign in with Amazon to keep projects."), 6.0))
+        shots.append((grab(page, "Panel case builder on the web", "1.00 in grid. Closed tray. Shoebox lid. Sign in with Amazon to keep projects."), 10.0))
         page.click("button[data-view='bottom']")
         time.sleep(1.2)
-        shots.append((grab(page, "Bottom tray", "Four walls. M3 from below. Peg sockets in the wall tops."), 5.0))
+        shots.append((grab(page, "Bottom tray", "Four walls. M3 from below. Peg sockets in the wall tops."), 7.0))
         page.click("button[data-view='top']")
         time.sleep(1.2)
-        shots.append((grab(page, "Lid", "Print this face-down. Skirt and bosses point up off the bed."), 5.0))
+        shots.append((grab(page, "Lid", "Print this face-down. Skirt and bosses point up off the bed."), 7.0))
         page.click("button[data-view='assembly']")
         time.sleep(1.2)
-        shots.append((grab(page, "Together", "Drag the 3D view. Magenta marks every cutout."), 6.0))
+        shots.append((grab(page, "Together", "Drag the 3D view. Magenta marks every cutout."), 8.0))
 
         page.fill("#devfilter", "neoslider")
         time.sleep(0.4)
         page.select_option("#device", "neoslider")
         time.sleep(0.6)
-        shots.append((grab(page, "Parts have manufacturer pages", "Pick a device. Open the Adafruit / LilyGO / M5Stack listing."), 6.0))
+        shots.append((grab(page, "Parts have manufacturer pages", "Pick a device. Open the Adafruit / LilyGO / M5Stack listing."), 8.0))
 
         page.click("#preset-tilt")
         time.sleep(1.6)
-        shots.append((grab(page, "Row tilt", "3 rows flat, 2 at +30 deg, 1 at -30 deg. Side walls stay full height."), 6.0))
+        shots.append((grab(page, "Row tilt", "3 rows flat, 2 at +30 deg, 1 at -30 deg. Skirt hangs in world Z."), 10.0))
 
         page.click("#preset-sq")
         time.sleep(1.4)
         page.evaluate("document.getElementById('bom')?.scrollIntoView({block:'center'})")
         time.sleep(0.4)
-        shots.append((grab(page, "Bill of materials", "Counts, screws, and links update as you place parts. Then download a zip."), 8.0))
+        shots.append((grab(page, "Bill of materials", "Counts, screws, and links update as you place parts. Then download a zip."), 10.0))
 
         page.evaluate("window.scrollTo(0,0)")
         time.sleep(0.3)
-        shots.append((grab(page, "Save projects after you sign in", "Folders, cases, notes, search, and cases-by-part. Zip = BOM + OpenSCAD."), 8.0))
-        shots.append((grab(page, "ap.jeremy.ninja", "Sign in with Amazon. Build the case. Print the lid face-down."), 10.0))
+        shots.append((grab(page, "Save projects after you sign in", "Folders, cases, notes, search, and cases-by-part. Zip = BOM + OpenSCAD."), 9.0))
+        shots.append((grab(page, "ap.jeremy.ninja", "Sign in with Amazon. Build the case. Print the lid face-down."), 9.0))
 
         poster = shots[0][0].copy()
         total = 0.0
