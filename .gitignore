@@ -1,0 +1,9 @@
+data/pages/
+data/adafruit-products.json
+data/scraped-products.json
+data/pcb/*.brd
+data/pcb/*.json
+docs/preview/
+__pycache__/
+*.pyc
+.DS_Store
