@@ -1114,27 +1114,26 @@ $("addnote")?.addEventListener("click", async () => {
   }
 });
 
-const TAB_NAMES = ["view", "case", "parts", "library"];
+const TAB_NAMES = ["library", "case", "device"];
 function setTab(name) {
-  if (!TAB_NAMES.includes(name)) name = "view";
+  if (name === "parts") name = "device";
+  if (name === "view" || !TAB_NAMES.includes(name)) name = "case";
   for (const t of TAB_NAMES) document.body.classList.toggle("tab-" + t, t === name);
-  document.querySelectorAll("#tabs [data-tab]").forEach((b) => {
+  document.querySelectorAll("#side-tabs [data-tab]").forEach((b) => {
     const on = b.getAttribute("data-tab") === name;
     b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
     if (on) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
-  window.scrollTo(0, 0);
-  if (name === "view") {
-    requestAnimationFrame(() => {
-      if (window.rebuildPreview) window.rebuildPreview();
-    });
-  }
+  requestAnimationFrame(() => {
+    if (window.rebuildPreview) window.rebuildPreview();
+  });
   try {
     if (location.hash.replace("#", "") !== name) history.replaceState(null, "", "#" + name);
   } catch { /* ignore */ }
 }
-document.querySelectorAll("#tabs [data-tab]").forEach((b) => {
+document.querySelectorAll("#side-tabs [data-tab]").forEach((b) => {
   b.addEventListener("click", () => setTab(b.getAttribute("data-tab")));
 });
 window.addEventListener("hashchange", () => setTab(location.hash.replace("#", "")));
