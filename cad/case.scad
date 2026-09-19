@@ -1,7 +1,7 @@
 // Two-piece 1.00 in control case.
-// Bottom = tray (floor + walls). No posts in the board cavity.
-// Top  = lid. Case posts hang from the BACK of the lid, inside the wall
-//         rim, and drop into holes in the tray walls. Boards never hit them.
+// Bottom = tray: floor + LEFT and RIGHT walls only. Front and back stay open.
+// Top  = lid. Case posts hang from the BACK of the lid, inside the two side
+//         walls, and drop into holes in those walls. Boards never hit them.
 // Angled rows: left/right walls hull across each kink so the side is solid
 //         from floor to rim. No missing wedges.
 // Set COLS, ROWS, INNER_H, TILTS, NDEV, DEV_* then include this file.
@@ -43,26 +43,17 @@ function case_d() = C_ROWS*C_PITCH + 2*C_WALL;
 function row_y0(i) = (i==0) ? -C_WALL : 0;
 function row_ylen(i) = C_PITCH + (i==0?C_WALL:0) + (i==C_ROWS-1?C_WALL:0);
 
-// Posts sit on the wall centreline: x = -WALL/2 or width+WALL/2,
-// y = -WALL/2 (front) or PITCH+WALL/2 (back). Never inside the cell grid.
+// Posts sit on the two side-wall centrelines only (left and right).
+// Front and back have no walls, so they get no posts.
 module post_sites() {
     xs = [-C_WALL/2, C_COLS*C_PITCH + C_WALL/2];
-    at_row(0) {
-        for (x = xs) translate([x, -C_WALL/2, 0]) children();
-        if (C_COLS >= 2)
-            for (c = [1:C_COLS-1])
-                translate([c*C_PITCH, -C_WALL/2, 0]) children();
-    }
-    at_row(C_ROWS-1) {
-        for (x = xs) translate([x, C_PITCH + C_WALL/2, 0]) children();
-        if (C_COLS >= 2)
-            for (c = [1:C_COLS-1])
-                translate([c*C_PITCH, C_PITCH + C_WALL/2, 0]) children();
-    }
-    if (C_ROWS >= 2)
-        for (r = [1:C_ROWS-1])
-            for (x = xs)
-                at_row(r) translate([x, 0, 0]) children();
+    for (r = [0:C_ROWS-1])
+        at_row(r)
+            for (x = xs) {
+                translate([x, 0, 0]) children();
+                if (r == C_ROWS-1)
+                    translate([x, C_PITCH, 0]) children();
+            }
 }
 
 module row_floor(i) {

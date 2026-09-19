@@ -10,7 +10,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from glview import COLORS, Renderer, iso_eye, translate
+from glview import COLORS, Renderer, iso_eye, lid_flip_animate, translate
 
 ROOT = Path(__file__).resolve().parents[1]
 KIT = ROOT / "print-kits" / "sliders-quads-case"
@@ -78,8 +78,8 @@ def main():
         for i in range(NFRAMES):
             t = i / (NFRAMES - 1)
             if t < 0.22:
-                title = "Bottom tray. Walls hold the posts."
-                notes = ["8 mm rim  -  M3 from below", "No posts in the board grid"]
+                title = "Bottom tray. Two side walls, front and back open."
+                notes = ["8 mm left and right walls  -  M3 from below", "No posts on the open front or back"]
                 c = bc
                 dist = lerp(220, 200, st(t, 0, 0.22))
                 yaw = 40 + 50 * t / 0.22
@@ -87,31 +87,30 @@ def main():
                 rnd.begin(iso_eye(c, dist, yaw, pitch), c, fovy=32, near=5, far=1200)
                 rnd.ctx.clear(0.09, 0.11, 0.14, 1.0)
                 rnd.draw("bottom", color=COLORS["strip"])
-            elif t < 0.42:
-                title = "Top lid. Posts hang from the back, in the rim."
-                notes = ["Print flipped: visible face on the bed", "Board bosses sit under the cutouts, inside the cells"]
+            elif t < 0.38:
+                title = "Top lid prints upside down. Bosses point up."
+                notes = ["Visible face on the bed", "Two side walls only — no front or back wall"]
                 c = tc
                 dist = 210
-                yaw = 50 + 40 * st(t, 0.22, 0.42)
+                yaw = 50 + 40 * st(t, 0.22, 0.38)
                 rnd.begin(iso_eye(c, dist, yaw, 26), c, fovy=32, near=5, far=1200)
                 rnd.ctx.clear(0.09, 0.11, 0.14, 1.0)
                 rnd.draw("top", color=COLORS["faceplate"])
             elif t < 0.62:
-                title = "Lid posts drop into the wall sockets."
-                notes = ["Boards screw to the lid from below", "Posts never cross a NeoSlider or quad rotary"]
-                lift = lerp(55.0, 4.0, st(t, 0.42, 0.62))
-                # shift top so its XY aligns with bottom: move top min to bottom min, then lift
-                dx = bb[0][0] - tb[0][0]
-                dy = bb[0][1] - tb[0][1]
-                dz = bb[1][2] - tb[0][2] + lift
-                c = bc + np.array([0, 0, lift / 2])
-                yaw = 38 + 25 * st(t, 0.42, 0.62)
-                rnd.begin(iso_eye(c, 240, yaw, 22), c, fovy=32, near=5, far=1200)
+                title = "Flip the lid over, then drop it on the two walls."
+                notes = ["180 deg off the bed so posts point down", "Posts go into the left and right walls only"]
+                u = st(t, 0.38, 0.62)
+                angle = lerp(0.0, 180.0, min(1.0, u / 0.55))
+                drop = lerp(0.0, 1.0, st(u, 0.55, 1.0))
+                model = lid_flip_animate(tb, bb, 4, angle, drop)
+                c = bc + np.array([0.0, 0.0, 28.0])
+                yaw = 42 + 18 * u
+                rnd.begin(iso_eye(c, 250, yaw, 20), c, fovy=32, near=5, far=1400)
                 rnd.ctx.clear(0.09, 0.11, 0.14, 1.0)
                 rnd.draw("bottom", color=COLORS["strip"])
-                rnd.draw("top", translate(dx, dy, dz), color=COLORS["faceplate"])
+                rnd.draw("top", model, color=COLORS["faceplate"])
             else:
-                title = "Angled rows. Sides go all the way up."
+                title = "Angled rows. Two side walls, full height."
                 notes = ["3 flat, 2 at +30 deg, 1 at -30 deg", "Hull fills every kink in the left and right walls"]
                 c = tbc
                 yaw = 30 + 70 * st(t, 0.62, 1.0)
@@ -119,12 +118,9 @@ def main():
                 rnd.begin(iso_eye(c, dist, yaw, 18), c, fovy=32, near=5, far=1600)
                 rnd.ctx.clear(0.09, 0.11, 0.14, 1.0)
                 rnd.draw("tilt_b", color=COLORS["strip"])
-                # park the tilted lid slightly above
                 ttb = rnd._bounds["tilt_t"]
-                dx = tbb[0][0] - ttb[0][0]
-                dy = tbb[0][1] - ttb[0][1]
-                dz = tbb[1][2] - ttb[0][2] + 8
-                rnd.draw("tilt_t", translate(dx, dy, dz), color=COLORS["faceplate"], alpha=0.92)
+                model = lid_flip_animate(ttb, tbb, 6, 180.0, 1.0)
+                rnd.draw("tilt_t", model, color=COLORS["faceplate"], alpha=0.92)
             img = hud(rnd.image(), title, notes)
             proc.stdin.write(img.tobytes())
             if i % 48 == 0:

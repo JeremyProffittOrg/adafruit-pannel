@@ -13,7 +13,7 @@ from reportlab.platypus import Image as RLImage
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from glview import COLORS, Renderer, caption, iso_eye, translate  # noqa: E402
+from glview import COLORS, Renderer, caption, iso_eye, lid_print_to_use, translate  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 VIEWS = ROOT / "docs" / "case-views"
@@ -85,6 +85,23 @@ def exploded(rnd):
     return path
 
 
+def fit_test(rnd):
+    bb = rnd._bounds["bottom"]
+    bc = (bb[0] + bb[1]) * 0.5
+    center = bc + np.array([0.0, 0.0, 16.0])
+    rnd.begin(iso_eye(center, 240, 44, 22), center, ortho_span=85, near=1, far=3000)
+    rnd.draw("bottom", color=COLORS["strip"])
+    rnd.draw("top", lid_print_to_use(4, 0.0), color=COLORS["faceplate"])
+    img = caption(
+        rnd.image(),
+        ["Fit test  lid flipped off the bed, posts down", "Two side walls only. Front and back stay open."],
+        footer="Print the lid upside down, flip it over, drop into the left and right walls",
+    )
+    path = VIEWS / "fit_test.png"
+    img.save(path, "PNG", optimize=True)
+    return path
+
+
 def header_footer(canvas, doc):
     canvas.saveState()
     canvas.setFillColor(WHITE)
@@ -122,6 +139,7 @@ def main():
         rnd.load_stl(name, path)
         views[name] = shots(name, rnd, color, label)
     pair = exploded(rnd)
+    fit = fit_test(rnd)
 
     ss = getSampleStyleSheet()
     ss.add(ParagraphStyle("Cover", fontName="Helvetica-Bold", fontSize=20, leading=24, textColor=INK, spaceAfter=8))
@@ -145,7 +163,13 @@ def main():
         ss["Body"],
     ))
     story.append(P("Print pair", ss["H"]))
-    story.append(img_flow(pair, usable_w, 5.4 * inch))
+    story.append(img_flow(pair, usable_w, 4.4 * inch))
+    story.append(P("Fit test — flip the lid over", ss["H"]))
+    story.append(P(
+        "The lid STL is already upside down for the bed. Flip it 180 deg so the posts point down, then drop it onto the two side walls. Front and back of the tray are open.",
+        ss["Body"],
+    ))
+    story.append(img_flow(fit, usable_w, 4.4 * inch))
     labels = {"bottom": "Bottom tray", "top": "Top lid (print orientation)", "tilt_bottom": "Tilted tray demo"}
     for name, _, _, _ in PARTS:
         story.append(PageBreak())

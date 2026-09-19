@@ -158,6 +158,57 @@ def translate(x, y, z):
     return m
 
 
+def rotate_x(deg):
+    a = math.radians(float(deg))
+    c, s = math.cos(a), math.sin(a)
+    m = np.eye(4, dtype=np.float32)
+    m[1, 1] = c
+    m[1, 2] = -s
+    m[2, 1] = s
+    m[2, 2] = c
+    return m
+
+
+def rotate_about(origin, rot):
+    o = np.asarray(origin, np.float64)
+    return translate(o[0], o[1], o[2]) @ rot @ translate(-o[0], -o[1], -o[2])
+
+
+# Matches cad/case.scad: top_lid_print is rotate([180,0,0]) then
+# translate([0, -case_d, -(BOTTOM_T+INNER_H+TOP_T)]) of the use pose.
+PRINT_PITCH = 25.4
+PRINT_WALL = 8.0
+PRINT_ZOFF = 3.0 + 25.0 + 3.2  # BOTTOM_T + INNER_H + TOP_T
+
+
+def lid_print_to_use(rows, lift=0.0):
+    """Map the print-oriented lid STL onto the tray. lift>0 holds it above."""
+    case_d = rows * PRINT_PITCH + 2 * PRINT_WALL
+    return translate(0.0, 0.0, lift) @ translate(0.0, case_d, PRINT_ZOFF) @ rotate_x(180)
+
+
+def lid_flip_animate(tb, bb, rows, angle, drop):
+    """angle 0 = as printed (bosses up). 180 = posts down. drop 0..1 seats it."""
+    hover = 52.0
+    pc = (tb[0] + tb[1]) * 0.5
+    bc = (bb[0] + bb[1]) * 0.5
+    start = translate(bc[0] - pc[0], bc[1] - pc[1], bb[1][2] + hover - tb[0][2])
+    start_c = np.array(
+        [bc[0], bc[1], pc[2] + (bb[1][2] + hover - tb[0][2])],
+        np.float64,
+    )
+    flipping = rotate_about(start_c, rotate_x(angle)) @ start
+    seated = lid_print_to_use(rows, lift=0.0)
+    t = 0.0 if drop < 0 else 1.0 if drop > 1 else drop
+    return _lerp_mat(flipping, seated, t)
+
+
+def _lerp_mat(a, b, t):
+    t = 0.0 if t < 0 else 1.0 if t > 1 else t
+    t = t * t * (3 - 2 * t)
+    return (a * (1.0 - t) + b * t).astype(np.float32)
+
+
 def scale(sx, sy, sz):
     m = np.eye(4, dtype=np.float32)
     m[0, 0] = sx
