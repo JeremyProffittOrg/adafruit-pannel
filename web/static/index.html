@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=9">
+  <link rel="stylesheet" href="/style.css?v=10">
   <script type="importmap">
   {
     "imports": {
@@ -89,6 +89,10 @@
             <th><label for="edgemm">Edge mm</label></th>
             <td><input id="edgemm" type="number" min="0" max="8" step="0.5" value="2"></td>
           </tr>
+          <tr>
+            <th><label for="hang" title="Two keyholes in the back wall. Drop the case onto wall screws, then down.">Hang holes</label></th>
+            <td><input id="hang" type="checkbox" checked></td>
+          </tr>
         </tbody>
         <tbody>
           <tr><th colspan="2" class="section">Row tilt (deg)</th></tr>
@@ -143,7 +147,7 @@
     <a href="/privacy.html">Privacy</a>
     <span>M3 from below into lid pegs. Lid prints face-down.</span>
   </footer>
-  <script src="/app.js?v=9"></script>
-  <script type="module" src="/preview.js?v=9"></script>
+  <script src="/app.js?v=10"></script>
+  <script type="module" src="/preview.js?v=10"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ let layout = {
   inner_h: 25,
   edge_style: "round",
   edge_mm: 2,
+  hang: true,
   tilts: [0, 0, 0, 0],
   devices: [],
   walls: [],
@@ -35,7 +36,17 @@ function cloneLayout(src) {
   l.inner_h = numOr(l.inner_h, 25);
   l.edge_style = l.edge_style || "round";
   l.edge_mm = numOr(l.edge_mm, 2);
+  l.hang = l.hang !== false;
   return l;
+}
+
+function hangXs(cols) {
+  const span = (cols || 1) * 25.4;
+  if (span > 28) {
+    const inset = Math.min(25.4 / 2, span / 2 - 6);
+    return [inset, span - inset];
+  }
+  return [span / 2];
 }
 
 function clipDevices() {
@@ -233,6 +244,7 @@ function syncSize() {
   layout.inner_h = numOr($("inner").value, 25);
   layout.edge_style = $("edge")?.value || "round";
   layout.edge_mm = numOr($("edgemm")?.value, 2);
+  layout.hang = $("hang") ? $("hang").checked : true;
   clipDevices();
   renderTilts();
   renderGrid();
@@ -245,6 +257,10 @@ function setEdgeInputs(style, mm) {
   if ($("edgemm")) $("edgemm").value = numOr(mm, 2);
 }
 
+function setHang(on) {
+  if ($("hang")) $("hang").checked = !!on;
+}
+
 function clearNotes() {
   if ($("notelist")) $("notelist").innerHTML = "";
   if ($("notetext")) $("notetext").value = "";
@@ -255,6 +271,7 @@ $("rows").addEventListener("input", syncSize);
 $("inner").addEventListener("input", syncSize);
 $("edge").addEventListener("change", syncSize);
 $("edgemm").addEventListener("input", syncSize);
+$("hang")?.addEventListener("change", syncSize);
 $("devfilter").addEventListener("input", fillDevices);
 $("add-wall").addEventListener("click", () => {
   layout.walls.push({
@@ -272,9 +289,10 @@ $("preset-sq").addEventListener("click", () => {
   $("rows").value = 4;
   $("inner").value = 25;
   setEdgeInputs("round", 2);
+  setHang(true);
   clearNotes();
   layout = {
-    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, tilts: [0, 0, 0, 0], walls: [],
+    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, tilts: [0, 0, 0, 0], walls: [],
     devices: [
       { id: "neoslider", c: 0, r: 0 },
       { id: "neoslider", c: 1, r: 0 },
@@ -293,9 +311,10 @@ $("preset-tilt").addEventListener("click", () => {
   $("rows").value = 6;
   $("inner").value = 25;
   setEdgeInputs("round", 2);
+  setHang(true);
   clearNotes();
   layout = {
-    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2,
+    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true,
     tilts: [0, 0, 0, 30, 30, -30],
     devices: [],
     walls: [],
@@ -369,6 +388,9 @@ function renderBOM() {
   if (firstTilt && lastTilt) posts += layout.cols > 1 ? 2 * (layout.cols - 1) : 2;
   else if (firstTilt || lastTilt) posts += layout.cols > 1 ? (layout.cols - 1) : 1;
   if (posts) lines.push({ qty: posts, item: "M3 screw from below (tray into lid peg)", url: "" });
+  if (layout.hang !== false) {
+    lines.push({ qty: hangXs(layout.cols).length, item: "Wall screw for back keyhole (#8 / M4)", url: "" });
+  }
   for (const lab of Object.keys(screws).sort()) {
     lines.push({ qty: screws[lab], item: lab, url: "" });
   }
@@ -422,6 +444,7 @@ function applyCase(rec) {
   $("rows").value = layout.rows;
   $("inner").value = layout.inner_h;
   setEdgeInputs(layout.edge_style, layout.edge_mm);
+  setHang(layout.hang !== false);
   syncSize();
   renderWalls();
   loadNotes().catch((e) => { $("status").textContent = String(e); });
@@ -436,7 +459,8 @@ function resetOpenCase() {
   $("rows").value = 4;
   $("inner").value = 25;
   setEdgeInputs("round", 2);
-  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, tilts: [0, 0, 0, 0], devices: [], walls: [] };
+  setHang(true);
+  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, tilts: [0, 0, 0, 0], devices: [], walls: [] };
   syncSize();
   renderWalls();
 }

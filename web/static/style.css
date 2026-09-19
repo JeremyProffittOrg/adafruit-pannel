@@ -143,6 +143,7 @@ table.fields th.section {
 }
 table.fields input,
 table.fields select { width: 100%; max-width: none; box-sizing: border-box; }
+table.fields input[type="checkbox"] { width: auto; height: 18px; }
 input, select {
   font: inherit;
   padding: 5px 7px;

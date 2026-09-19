@@ -13,7 +13,7 @@ func TestBuildZipIncludesCad(t *testing.T) {
 	body, err := buildZipBytes(Layout{
 		Title: "3 sliders + 2 quad rotaries",
 		Cols:  5, Rows: 4, InnerH: 25,
-		EdgeStyle: "round", EdgeMM: 2,
+		EdgeStyle: "round", EdgeMM: 2, Hang: true,
 		Tilts: []float64{0, 0, 0, 0},
 		Devices: []PlacedDev{
 			{ID: "neoslider", C: 0, R: 0},
@@ -41,6 +41,22 @@ func TestBuildZipIncludesCad(t *testing.T) {
 		if !have[n] {
 			t.Fatalf("zip missing %s", n)
 		}
+	}
+	scad := ""
+	for _, f := range zr.File {
+		if f.Name == "cad/generated/job-bottom.scad" {
+			r, err := f.Open()
+			if err != nil {
+				t.Fatal(err)
+			}
+			b := new(bytes.Buffer)
+			_, _ = b.ReadFrom(r)
+			r.Close()
+			scad = b.String()
+		}
+	}
+	if !bytes.Contains([]byte(scad), []byte("HANG = 1;")) {
+		t.Fatalf("job scad missing HANG = 1:\n%s", scad)
 	}
 }
 

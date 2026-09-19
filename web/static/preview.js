@@ -48,6 +48,14 @@ function lidWZ(l, i, ly) {
   const t = (tiltOf(l, i) * Math.PI) / 180;
   return accumZ(l, i) + ly * Math.sin(t) + wallH(l) * Math.cos(t);
 }
+function hangXs(cols) {
+  const span = (cols || 1) * PITCH;
+  if (span > 28) {
+    const inset = Math.min(PITCH / 2, span / 2 - 6);
+    return [inset, span - inset];
+  }
+  return [span / 2];
+}
 function lidLY0(i) {
   return (i === 0 ? -WALL - EX : 0);
 }
@@ -283,6 +291,20 @@ function build(l) {
     if (i === 0) box(row, cw, WALL, H, cols * PITCH / 2, -WALL / 2, H / 2);
     if (i === rows - 1) box(row, cw, WALL, H, cols * PITCH / 2, PITCH + WALL / 2, H / 2);
     tray.add(row);
+    if (i === rows - 1 && l.hang !== false) {
+      const cutMat = new THREE.MeshBasicMaterial({ color: CUT });
+      for (const x of hangXs(cols)) {
+        const g = new THREE.Group();
+        g.position.set(x, PITCH + WALL / 2, H - 12);
+        const head = new THREE.Mesh(new THREE.CylinderGeometry(4.25, 4.25, WALL + 2, 20), cutMat);
+        head.position.z = 7;
+        const slot = new THREE.Mesh(new THREE.BoxGeometry(4.2, WALL + 2, 12), cutMat);
+        slot.position.z = 1;
+        g.add(head);
+        g.add(slot);
+        row.add(g);
+      }
+    }
   }
   for (let i = 0; i < rows - 1; i++) {
     const m0 = rowMatrix(l, i);

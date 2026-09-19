@@ -57,6 +57,7 @@ type Layout struct {
 	Tilts     []float64    `json:"tilts"`
 	EdgeStyle string       `json:"edge_style"`
 	EdgeMM    float64      `json:"edge_mm"`
+	Hang      bool         `json:"hang"`
 	Devices   []PlacedDev  `json:"devices"`
 	Walls     []PlacedWall `json:"walls"`
 }
@@ -107,6 +108,7 @@ func writeLayout(path, part string, l Layout) error {
 	fmt.Fprintf(&b, "PART = \"%s\";\n", scadEscape(part))
 	fmt.Fprintf(&b, "COLS = %d;\nROWS = %d;\nINNER_H = %.3f;\n", l.Cols, l.Rows, l.InnerH)
 	fmt.Fprintf(&b, "EDGE_STYLE = \"%s\";\nEDGE_MM = %.3f;\n", scadEscape(l.EdgeStyle), l.EdgeMM)
+	fmt.Fprintf(&b, "HANG = %d;\n", map[bool]int{true: 1, false: 0}[l.Hang])
 	b.WriteString("TILTS = [")
 	for i, t := range l.Tilts[:l.Rows] {
 		if i > 0 {
@@ -210,6 +212,16 @@ func rowFlat(l Layout, r int) bool {
 	return t < 0.05 && t > -0.05
 }
 
+func hangCount(l Layout) int {
+	if !l.Hang {
+		return 0
+	}
+	if float64(l.Cols)*25.4 > 28 {
+		return 2
+	}
+	return 1
+}
+
 func postCount(l Layout) int {
 	n := 0
 	for r := 0; r < l.Rows; r++ {
@@ -287,6 +299,9 @@ func bomLines(l Layout) []bomLine {
 	}
 	if n := postCount(l); n > 0 {
 		out = append(out, bomLine{n, "M3 screw from below (tray into lid peg)", "hardware", ""})
+	}
+	if n := hangCount(l); n > 0 {
+		out = append(out, bomLine{n, "Wall screw for back keyhole (#8 / M4)", "hardware", ""})
 	}
 	out = append(out, pcbScrewLines(l)...)
 	qty := map[string]int{}

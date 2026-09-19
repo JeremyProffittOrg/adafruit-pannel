@@ -14,6 +14,7 @@ KIT = ROOT / "print-kits" / "sliders-quads-case"
 SQ = """PART = "{part}";
 COLS = 5; ROWS = 4; INNER_H = 25;
 EDGE_STYLE = "round"; EDGE_MM = 2;
+HANG = 1;
 TILTS = [0, 0, 0, 0];
 NDEV = 5;
 DEV_ID = ["neoslider", "neoslider", "neoslider", "quad_rotary", "quad_rotary"];
@@ -26,6 +27,7 @@ include <../case.scad>
 TILT = """PART = "{part}";
 COLS = 4; ROWS = 6; INNER_H = 25;
 EDGE_STYLE = "round"; EDGE_MM = 2;
+HANG = 1;
 TILTS = [0, 0, 0, 30, 30, -30];
 NDEV = 0; NWALL = 0;
 include <../case.scad>

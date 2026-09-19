@@ -35,6 +35,7 @@ C_NWALL    = is_undef(NWALL)      ? 0 : NWALL;
 C_TILTS    = is_undef(TILTS)      ? [for (i=[0:C_ROWS-1]) 0] : TILTS;
 C_EDGE     = is_undef(EDGE_STYLE) ? "round" : EDGE_STYLE;
 C_EDGE_MM  = is_undef(EDGE_MM)    ? 2.0 : EDGE_MM;
+C_HANG     = is_undef(HANG)       ? 1    : HANG;  // 1 = keyholes in the back wall
 $fn = 28;
 
 C_WALL_H = C_BOT + C_INNER;
@@ -292,6 +293,34 @@ module tray_wall_cuts() {
         }
 }
 
+// Two keyholes through the back wall so the case hangs on screws.
+// Head circle at the top; drop the case onto the screws, then down.
+function hang_xs() =
+    let (span = C_COLS * C_PITCH,
+         inset = min(C_PITCH / 2, span / 2 - 6))
+        (span > 28) ? [inset, span - inset] : [span / 2];
+
+module hang_keyhole_2d() {
+    hull() {
+        translate([0, 7]) circle(d=8.5);
+        translate([0, 3]) circle(d=4.2);
+    }
+    hull() {
+        translate([0, 3]) circle(d=4.2);
+        translate([0, -5]) circle(d=4.2);
+    }
+}
+
+module hang_holes() {
+    if (C_HANG)
+        at_row(C_ROWS - 1)
+            for (x = hang_xs())
+                translate([x, C_PITCH + C_WALL / 2, C_WALL_H - 12])
+                    rotate([90, 0, 0])
+                        linear_extrude(C_WALL + 2, center=true)
+                            hang_keyhole_2d();
+}
+
 module tray_extras() {
     if (C_NDEV > 0)
         for (i = [0:C_NDEV-1])
@@ -309,6 +338,7 @@ module bottom_tray_flat() {
                 square([C_COLS*C_PITCH, C_ROWS*C_PITCH]);
         tray_fasteners();
         tray_wall_cuts();
+        hang_holes();
     }
     tray_extras();
 }
@@ -326,6 +356,7 @@ module bottom_tray_tilted() {
         cavity_kink_fill();
         tray_fasteners();
         tray_wall_cuts();
+        hang_holes();
     }
     tray_extras();
 }

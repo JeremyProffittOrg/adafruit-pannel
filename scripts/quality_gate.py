@@ -62,6 +62,7 @@ PRESETS = {
             {"id": "quad_rotary", "c": 4, "r": 0},
         ],
         "walls": [],
+        "hang": True,
         "bottom": ROOT / "print-kits" / "sliders-quads-case" / "bottom.stl",
         "top": ROOT / "print-kits" / "sliders-quads-case" / "top.stl",
         "top_use": ROOT / "cad" / "generated" / "sq-top-use.stl",
@@ -75,6 +76,7 @@ PRESETS = {
         "edge_mm": 2.0,
         "devices": [],
         "walls": [],
+        "hang": True,
         "bottom": ROOT / "print-kits" / "sliders-quads-case" / "tilt-bottom.stl",
         "top": ROOT / "print-kits" / "sliders-quads-case" / "tilt-top.stl",
         "top_use": ROOT / "cad" / "generated" / "tilt-top-use.stl",
@@ -275,10 +277,24 @@ def max_penetration(mesh, points, thresh=0.20):
     return float((-sd)[inside].max())
 
 
+def hang_xs(cols):
+    span = cols * PITCH
+    if span > 28:
+        inset = min(PITCH / 2, span / 2 - 6)
+        return [inset, span - inset]
+    return [span / 2]
+
+
 def designed_cutout_mask(layout, lib, xs, ys, z, wall_h_):
     """True where a sample sits in a declared lid or wall opening."""
     mask = np.zeros(len(xs), dtype=bool)
     if z < wall_h_ - 0.2:
+        if layout.get("hang", True):
+            zc = wall_h_ - 12
+            if abs(z - zc) < 14:
+                y_back = layout["rows"] * PITCH
+                for hx in hang_xs(layout["cols"]):
+                    mask |= (np.abs(xs - hx) <= 6) & (ys > y_back - 8)
         for w in layout.get("walls") or []:
             d = lib.get(w["id"])
             if not d:
@@ -566,6 +582,10 @@ def _cutout_plugs(layout, lib, z, zh):
             plugs.append((pos, -WALL / 2, rad))
         else:
             plugs.append((pos, layout["rows"] * PITCH + WALL / 2, rad))
+    if layout.get("hang", True):
+        y_back = layout["rows"] * PITCH + WALL / 2
+        for hx in hang_xs(layout["cols"]):
+            plugs.append((hx, y_back, 10.0))
     if z >= zh - 0.2:
         for p in layout.get("devices") or []:
             d = lib.get(p["id"])
