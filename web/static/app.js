@@ -40,9 +40,15 @@ function renderTilts() {
   layout.tilts.length = layout.rows;
   for (let i = 0; i < layout.rows; i++) {
     if (layout.tilts[i] == null) layout.tilts[i] = 0;
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
     const lab = document.createElement("label");
-    lab.textContent = `row ${i} `;
+    lab.htmlFor = `tilt-${i}`;
+    lab.textContent = `Row ${i}`;
+    th.appendChild(lab);
+    const td = document.createElement("td");
     const inp = document.createElement("input");
+    inp.id = `tilt-${i}`;
     inp.type = "number";
     inp.value = layout.tilts[i];
     inp.step = 5;
@@ -50,8 +56,10 @@ function renderTilts() {
       layout.tilts[i] = Number(inp.value) || 0;
       bumpPreview();
     });
-    lab.appendChild(inp);
-    box.appendChild(lab);
+    td.appendChild(inp);
+    tr.appendChild(th);
+    tr.appendChild(td);
+    box.appendChild(tr);
   }
 }
 

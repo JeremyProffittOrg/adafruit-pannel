@@ -17,6 +17,21 @@ main { display:flex; gap:12px; padding:12px; align-items:flex-start; flex-wrap:w
 body.signed-in #library { display:block; }
 h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin:12px 0 8px; color:var(--muted); }
 label { display:block; margin:6px 0; }
+table.fields { width:100%; border-collapse:collapse; }
+table.fields th {
+  text-align:right;
+  font-weight:500;
+  padding:4px 10px 4px 0;
+  white-space:nowrap;
+  vertical-align:middle;
+  width:1%;
+  color:var(--ink);
+  background-color:#ffffff;
+}
+table.fields td { padding:3px 0; vertical-align:middle; }
+table.fields th label { display:inline; margin:0; }
+table.fields input,
+table.fields select { width:100%; max-width:none; box-sizing:border-box; }
 input, select { font:inherit; padding:4px 6px; max-width:100%; }
 select#device { width:100%; height: 240px; }
 button { font:inherit; padding:6px 10px; margin:4px 4px 4px 0; cursor:pointer; }
