@@ -33,6 +33,24 @@ function dev_cells_x(id) =
   id == "stemma_pir" ? 1 :
   id == "stemma_env" ? 1 :
   id == "stemma_air" ? 2 :
+  id == "t_display_s3_long" ? 4 :
+  id == "t_display_amoled_lite" ? 2 :
+  id == "t_watch_s3" ? 2 :
+  id == "t_lora32" ? 3 :
+  id == "t5_epaper_s3" ? 4 :
+  id == "m5_cardputer" ? 4 :
+  id == "m5_dial" ? 2 :
+  id == "m5_atoms3" ? 1 :
+  id == "m5_stamp_s3" ? 1 :
+  id == "esp32_devkitc" ? 3 :
+  id == "esp32_s3_devkitc" ? 3 :
+  id == "esp32_c3_devkit" ? 2 :
+  id == "wemos_d1_mini" ? 2 :
+  id == "xiao_esp32s3" ? 1 :
+  id == "qtpy_esp32s3" ? 1 :
+  id == "feather_esp32s2" ? 2 :
+  id == "esp32_cam" ? 2 :
+  id == "pico_w" ? 2 :
   1;
 function dev_cells_y(id) =
   id == "empty" ? 1 :
@@ -66,6 +84,24 @@ function dev_cells_y(id) =
   id == "stemma_pir" ? 1 :
   id == "stemma_env" ? 1 :
   id == "stemma_air" ? 1 :
+  id == "t_display_s3_long" ? 1 :
+  id == "t_display_amoled_lite" ? 1 :
+  id == "t_watch_s3" ? 2 :
+  id == "t_lora32" ? 1 :
+  id == "t5_epaper_s3" ? 2 :
+  id == "m5_cardputer" ? 3 :
+  id == "m5_dial" ? 2 :
+  id == "m5_atoms3" ? 1 :
+  id == "m5_stamp_s3" ? 1 :
+  id == "esp32_devkitc" ? 1 :
+  id == "esp32_s3_devkitc" ? 1 :
+  id == "esp32_c3_devkit" ? 1 :
+  id == "wemos_d1_mini" ? 1 :
+  id == "xiao_esp32s3" ? 1 :
+  id == "qtpy_esp32s3" ? 1 :
+  id == "feather_esp32s2" ? 1 :
+  id == "esp32_cam" ? 1 :
+  id == "pico_w" ? 1 :
   1;
 function dev_boss(id) =
   id == "empty" ? 6 :
@@ -99,6 +135,24 @@ function dev_boss(id) =
   id == "stemma_pir" ? 4 :
   id == "stemma_env" ? 4 :
   id == "stemma_air" ? 4 :
+  id == "t_display_s3_long" ? 5 :
+  id == "t_display_amoled_lite" ? 5 :
+  id == "t_watch_s3" ? 5 :
+  id == "t_lora32" ? 6 :
+  id == "t5_epaper_s3" ? 5 :
+  id == "m5_cardputer" ? 5 :
+  id == "m5_dial" ? 6 :
+  id == "m5_atoms3" ? 5 :
+  id == "m5_stamp_s3" ? 5 :
+  id == "esp32_devkitc" ? 6 :
+  id == "esp32_s3_devkitc" ? 6 :
+  id == "esp32_c3_devkit" ? 6 :
+  id == "wemos_d1_mini" ? 6 :
+  id == "xiao_esp32s3" ? 5 :
+  id == "qtpy_esp32s3" ? 5 :
+  id == "feather_esp32s2" ? 6 :
+  id == "esp32_cam" ? 5 :
+  id == "pico_w" ? 5 :
   6;
 function dev_is_bottom(id) =
   id == "empty" ? false :
@@ -132,6 +186,24 @@ function dev_is_bottom(id) =
   id == "stemma_pir" ? false :
   id == "stemma_env" ? false :
   id == "stemma_air" ? false :
+  id == "t_display_s3_long" ? false :
+  id == "t_display_amoled_lite" ? false :
+  id == "t_watch_s3" ? false :
+  id == "t_lora32" ? true :
+  id == "t5_epaper_s3" ? false :
+  id == "m5_cardputer" ? false :
+  id == "m5_dial" ? false :
+  id == "m5_atoms3" ? false :
+  id == "m5_stamp_s3" ? true :
+  id == "esp32_devkitc" ? true :
+  id == "esp32_s3_devkitc" ? true :
+  id == "esp32_c3_devkit" ? true :
+  id == "wemos_d1_mini" ? true :
+  id == "xiao_esp32s3" ? true :
+  id == "qtpy_esp32s3" ? true :
+  id == "feather_esp32s2" ? true :
+  id == "esp32_cam" ? false :
+  id == "pico_w" ? true :
   false;
 
 module dev_cutouts(id) {
@@ -217,6 +289,30 @@ module dev_cutouts(id) {
   if (id == "stemma_air") {
     for (gy = [-3, 0, 3])
       translate([0, 0+gy, 9]) cube([16, 1.4, 20], center=true);
+  }
+  if (id == "t_display_s3_long") {
+    translate([0, 0, 9]) cube([70, 16, 20], center=true);
+  }
+  if (id == "t_display_amoled_lite") {
+    translate([0, 0, 9]) cube([22, 16, 20], center=true);
+  }
+  if (id == "t_watch_s3") {
+    translate([0, 0, -1]) cylinder(d=38, h=20);
+  }
+  if (id == "t5_epaper_s3") {
+    translate([0, 0, 9]) cube([70, 30, 20], center=true);
+  }
+  if (id == "m5_cardputer") {
+    translate([20, 12, 9]) cube([26, 14, 20], center=true);
+  }
+  if (id == "m5_dial") {
+    translate([0, 0, -1]) cylinder(d=40, h=20);
+  }
+  if (id == "m5_atoms3") {
+    translate([0, 0, 9]) cube([14, 14, 20], center=true);
+  }
+  if (id == "esp32_cam") {
+    translate([10, 0, -1]) cylinder(d=8, h=20);
   }
 }
 
@@ -703,6 +799,256 @@ module dev_bosses(id) {
     translate([-12, 6, 0]) difference() {
       cylinder(d=6.8, h=4);
       translate([0,0,-0.2]) cylinder(d=2.30, h=4+0.4);
+    }
+  }
+  if (id == "t_display_s3_long") {
+    translate([32, 8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-32, 8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([32, -8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-32, -8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+  }
+  if (id == "t_display_amoled_lite") {
+    translate([14, 8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-14, 8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+  }
+  if (id == "t_watch_s3") {
+    translate([18, 18, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-18, 18, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([18, -18, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-18, -18, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+  }
+  if (id == "t_lora32") {
+    translate([26, 8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=6+0.4);
+    }
+    translate([-26, 8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=6+0.4);
+    }
+  }
+  if (id == "t5_epaper_s3") {
+    translate([32, 14, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=5+0.4);
+    }
+    translate([-32, 14, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=5+0.4);
+    }
+    translate([32, -14, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=5+0.4);
+    }
+    translate([-32, -14, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=5+0.4);
+    }
+  }
+  if (id == "m5_cardputer") {
+    translate([34, 20, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=5+0.4);
+    }
+    translate([-34, 20, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=5+0.4);
+    }
+    translate([34, -20, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=5+0.4);
+    }
+    translate([-34, -20, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=5+0.4);
+    }
+  }
+  if (id == "m5_dial") {
+    translate([18, 18, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=3.00, h=6+0.4);
+    }
+    translate([-18, 18, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=3.00, h=6+0.4);
+    }
+    translate([18, -18, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=3.00, h=6+0.4);
+    }
+    translate([-18, -18, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=3.00, h=6+0.4);
+    }
+  }
+  if (id == "m5_atoms3") {
+    translate([8, 8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-8, 8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([8, -8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-8, -8, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+  }
+  if (id == "m5_stamp_s3") {
+    translate([6, 6, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-6, 6, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+  }
+  if (id == "esp32_devkitc") {
+    translate([22, 10, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.80, h=6+0.4);
+    }
+    translate([-22, 10, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.80, h=6+0.4);
+    }
+    translate([22, -10, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.80, h=6+0.4);
+    }
+    translate([-22, -10, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.80, h=6+0.4);
+    }
+  }
+  if (id == "esp32_s3_devkitc") {
+    translate([22, 10, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.80, h=6+0.4);
+    }
+    translate([-22, 10, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.80, h=6+0.4);
+    }
+    translate([22, -10, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.80, h=6+0.4);
+    }
+    translate([-22, -10, 0]) difference() {
+      cylinder(d=8.0, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.80, h=6+0.4);
+    }
+  }
+  if (id == "esp32_c3_devkit") {
+    translate([18, 8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=6+0.4);
+    }
+    translate([-18, 8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=6+0.4);
+    }
+  }
+  if (id == "wemos_d1_mini") {
+    translate([12, 8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=6+0.4);
+    }
+    translate([-12, 8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=6+0.4);
+    }
+  }
+  if (id == "xiao_esp32s3") {
+    translate([7, 6, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-7, 6, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+  }
+  if (id == "feather_esp32s2") {
+    translate([22, 8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=6+0.4);
+    }
+    translate([-22, 8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=6+0.4);
+    }
+    translate([22, -8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=6+0.4);
+    }
+    translate([-22, -8, 0]) difference() {
+      cylinder(d=6.8, h=6);
+      translate([0,0,-0.2]) cylinder(d=2.30, h=6+0.4);
+    }
+  }
+  if (id == "esp32_cam") {
+    translate([14, 9, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+    translate([-14, 9, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=2.00, h=5+0.4);
+    }
+  }
+  if (id == "pico_w") {
+    translate([23, 5.5, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=1.90, h=5+0.4);
+    }
+    translate([-23, 5.5, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=1.90, h=5+0.4);
+    }
+    translate([23, -5.5, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=1.90, h=5+0.4);
+    }
+    translate([-23, -5.5, 0]) difference() {
+      cylinder(d=6.8, h=5);
+      translate([0,0,-0.2]) cylinder(d=1.90, h=5+0.4);
     }
   }
 }

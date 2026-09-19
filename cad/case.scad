@@ -1,33 +1,38 @@
-// Two-piece 1.00 in control case.
-// Bottom = tray: floor + LEFT and RIGHT walls only. Front and back stay open.
-// Top  = lid. Case posts hang from the BACK of the lid, inside the two side
-//         walls, and drop into holes in those walls. Boards never hit them.
-// Angled rows: left/right walls hull across each kink so the side is solid
-//         from floor to rim. No missing wedges.
-// Set COLS, ROWS, INNER_H, TILTS, NDEV, DEV_* then include this file.
+// First-class two-piece 1.00 in control case (YAPP-style shell).
+// Closed tray: floor + left + right + front + back walls.
+// Lid posts hang from the BACK of the lid, in the wall rim, world-Z (straight down).
+// Pegs/holes on angled rows are vertical in world Z, not normal to the slope.
+// EDGE_STYLE: "square" | "round" | "chamfer"   EDGE_MM radius/chamfer.
+// Set COLS, ROWS, INNER_H, TILTS, NDEV, DEV_*, EDGE_* then include this file.
 
 include <devices.scad>
 
-C_PITCH    = is_undef(PITCH)     ? 25.4 : PITCH;
-C_COLS     = is_undef(COLS)      ? 5    : COLS;
-C_ROWS     = is_undef(ROWS)      ? 4    : ROWS;
-C_INNER    = is_undef(INNER_H)   ? 25   : INNER_H;
-C_WALL     = is_undef(WALL)      ? 8.0  : WALL;   // wide enough to hold the post
-C_BOT      = is_undef(BOTTOM_T)  ? 3.0  : BOTTOM_T;
-C_TOP      = is_undef(TOP_T)     ? 3.2  : TOP_T;
+C_PITCH    = is_undef(PITCH)      ? 25.4 : PITCH;
+C_COLS     = is_undef(COLS)       ? 5    : COLS;
+C_ROWS     = is_undef(ROWS)       ? 4    : ROWS;
+C_INNER    = is_undef(INNER_H)    ? 25   : INNER_H;
+C_WALL     = is_undef(WALL)       ? 8.0  : WALL;
+C_BOT      = is_undef(BOTTOM_T)   ? 3.0  : BOTTOM_T;
+C_TOP      = is_undef(TOP_T)      ? 3.2  : TOP_T;
 C_REBATE   = 1.6;
 C_M3       = 3.3;
 C_M3CS     = 6.6;
-C_POST     = 6.8;   // lives inside the wall, never in the cell grid
-C_PART     = is_undef(PART)      ? "preview" : PART;
-C_NDEV     = is_undef(NDEV)      ? 0 : NDEV;
-C_NWALL    = is_undef(NWALL)     ? 0 : NWALL;
-C_TILTS    = is_undef(TILTS)     ? [for (i=[0:C_ROWS-1]) 0] : TILTS;
+C_POST     = 6.8;
+C_PART     = is_undef(PART)       ? "preview" : PART;
+C_NDEV     = is_undef(NDEV)       ? 0 : NDEV;
+C_NWALL    = is_undef(NWALL)      ? 0 : NWALL;
+C_TILTS    = is_undef(TILTS)      ? [for (i=[0:C_ROWS-1]) 0] : TILTS;
+C_EDGE     = is_undef(EDGE_STYLE) ? "round" : EDGE_STYLE;
+C_EDGE_MM  = is_undef(EDGE_MM)    ? 2.0 : EDGE_MM;
 $fn = 28;
 
 H_CASE = C_BOT + C_INNER + C_REBATE;
 
 function tilt_of(i) = (len(C_TILTS) > i) ? C_TILTS[i] : 0;
+function accum_y(i) = (i <= 0) ? 0 : accum_y(i-1) + C_PITCH * cos(tilt_of(i-1));
+function accum_z(i) = (i <= 0) ? 0 : accum_z(i-1) + C_PITCH * sin(tilt_of(i-1));
+function wy(i, ly) = accum_y(i) + ly * cos(tilt_of(i));
+function wz(i, ly) = accum_z(i) + ly * sin(tilt_of(i));
 
 module at_row(i, j=0, ty=0, tz=0) {
     if (j == i) {
@@ -43,38 +48,79 @@ function case_d() = C_ROWS*C_PITCH + 2*C_WALL;
 function row_y0(i) = (i==0) ? -C_WALL : 0;
 function row_ylen(i) = C_PITCH + (i==0?C_WALL:0) + (i==C_ROWS-1?C_WALL:0);
 
-// Posts sit on the two side-wall centrelines only (left and right).
-// Front and back have no walls, so they get no posts.
-module post_sites() {
+module edge_rect(w, h) {
+    e = min(C_EDGE_MM, min(w,h)/2 - 0.2);
+    if (C_EDGE == "round" && e > 0.2) {
+        offset(r=e) offset(r=-e) square([w, h], center=false);
+    } else if (C_EDGE == "chamfer" && e > 0.2) {
+        hull() {
+            translate([e, 0]) square([w-2*e, h], center=false);
+            translate([0, e]) square([w, h-2*e], center=false);
+        }
+    } else {
+        square([w, h], center=false);
+    }
+}
+
+// World-Z posts on 25.4 mm pitch, in the WALL, never in the cell grid.
+module each_post() {
     xs = [-C_WALL/2, C_COLS*C_PITCH + C_WALL/2];
-    for (r = [0:C_ROWS-1])
-        at_row(r)
-            for (x = xs) {
-                translate([x, 0, 0]) children();
-                if (r == C_ROWS-1)
-                    translate([x, C_PITCH, 0]) children();
-            }
+    // left and right walls: one post at each row boundary (straight down)
+    for (r = [0:C_ROWS]) {
+        i  = (r == C_ROWS) ? C_ROWS-1 : r;
+        ly = (r == C_ROWS) ? C_PITCH : 0;
+        y  = wy(i, ly);
+        for (x = xs) translate([x, y, 0]) children();
+    }
+    // front wall (row 0, ly = -WALL/2)
+    yf = wy(0, -C_WALL/2);
+    for (c = [0:C_COLS]) {
+        x = (c == 0) ? -C_WALL/2 :
+            (c == C_COLS) ? C_COLS*C_PITCH + C_WALL/2 :
+            c * C_PITCH;
+        translate([x, yf, 0]) children();
+    }
+    // back wall (last row, ly = PITCH+WALL/2)
+    yb = wy(C_ROWS-1, C_PITCH + C_WALL/2);
+    for (c = [1:C_COLS-1])
+        translate([c * C_PITCH, yb, 0]) children();
+}
+
+module world_z_hole() {
+    cylinder(d=C_M3, h=400, center=true);
+    translate([0,0,-1]) cylinder(d1=C_M3CS, d2=C_M3, h=2);
+}
+
+module world_z_socket() {
+    cylinder(d=C_POST+0.45, h=400, center=true);
+}
+
+module world_z_lid_post() {
+    difference() {
+        cylinder(d=C_POST, h=H_CASE+20);
+        translate([0,0,-0.2]) cylinder(d=2.8, h=H_CASE+21);
+    }
+}
+
+module row_outer_2d(i) {
+    translate([-C_WALL, row_y0(i)])
+        edge_rect(case_w(), row_ylen(i));
 }
 
 module row_floor(i) {
     at_row(i)
-        translate([-C_WALL, row_y0(i), 0])
-            cube([case_w(), row_ylen(i), C_BOT]);
+        linear_extrude(C_BOT) row_outer_2d(i);
 }
 
-module row_left_wall(i) {
-    at_row(i)
-        translate([-C_WALL, row_y0(i), 0])
-            cube([C_WALL, row_ylen(i), H_CASE]);
+module row_walls(i) {
+    at_row(i) difference() {
+        linear_extrude(H_CASE) row_outer_2d(i);
+        translate([0, 0, -0.1])
+            linear_extrude(H_CASE + 0.2)
+                square([C_COLS*C_PITCH, C_PITCH]);
+    }
 }
 
-module row_right_wall(i) {
-    at_row(i)
-        translate([C_COLS*C_PITCH, row_y0(i), 0])
-            cube([C_WALL, row_ylen(i), H_CASE]);
-}
-
-// Solid side through each slope kink: hull the full-height wall ends.
 module side_kink_fill() {
     if (C_ROWS > 1)
         for (i = [0:C_ROWS-2]) {
@@ -114,16 +160,6 @@ module cavity_kink_fill() {
                 at_row(i+1) translate([0, 0, C_BOT])
                     cube([C_COLS*C_PITCH, 0.05, C_INNER + C_REBATE + 1]);
             }
-}
-
-module m3_floor_hole() {
-    translate([0,0,-0.1]) cylinder(d=C_M3, h=C_BOT+0.4);
-    translate([0,0,-0.1]) cylinder(d1=C_M3CS, d2=C_M3, h=1.9);
-}
-
-// Hole down the wall so the lid post can drop in. Does not enter the cell grid.
-module wall_post_socket() {
-    translate([0,0,C_BOT]) cylinder(d=C_POST+0.4, h=C_INNER+C_REBATE+0.4);
 }
 
 function dev_place_is_bottom(id) = dev_is_bottom(id);
@@ -167,17 +203,15 @@ module bottom_tray() {
         union() {
             for (i = [0:C_ROWS-1]) {
                 row_floor(i);
-                row_left_wall(i);
-                row_right_wall(i);
+                row_walls(i);
             }
             side_kink_fill();
         }
         for (i = [0:C_ROWS-1]) row_cavity(i);
         cavity_kink_fill();
-        // sockets in the walls for lid posts; floor holes for M3 from below
-        post_sites() {
-            m3_floor_hole();
-            wall_post_socket();
+        each_post() {
+            world_z_hole();
+            world_z_socket();
         }
         if (C_NWALL > 0)
             for (i = [0:C_NWALL-1])
@@ -195,8 +229,8 @@ module bottom_tray() {
 
 module row_lid(i) {
     at_row(i)
-        translate([-C_WALL, row_y0(i), C_BOT + C_INNER])
-            cube([case_w(), row_ylen(i), C_TOP]);
+        translate([0, 0, C_BOT + C_INNER])
+            linear_extrude(C_TOP) row_outer_2d(i);
 }
 
 module lid_kink_fill() {
@@ -216,12 +250,13 @@ module top_lid_use() {
         union() {
             for (i = [0:C_ROWS-1]) row_lid(i);
             lid_kink_fill();
-            // posts hang from the BACK of the lid, in the wall rim only
-            post_sites()
-                translate([0,0,z0]) rotate([180,0,0]) difference() {
-                    cylinder(d=C_POST, h=C_INNER-0.2);
-                    translate([0,0,-0.1]) cylinder(d=2.8, h=C_INNER);
-                }
+            // posts hang straight down in world Z, in the rim, never in a cell
+            each_post()
+                translate([0, 0, C_BOT + 0.2])
+                    difference() {
+                        cylinder(d=C_POST, h=C_INNER - 0.2);
+                        translate([0,0,-0.1]) cylinder(d=2.8, h=C_INNER);
+                    }
             if (C_NDEV > 0)
                 for (i = [0:C_NDEV-1])
                     if (!dev_place_is_bottom(DEV_ID[i]))
@@ -234,8 +269,8 @@ module top_lid_use() {
                 if (!dev_place_is_bottom(DEV_ID[i]))
                     at_device(DEV_ID[i], DEV_C[i], DEV_R[i])
                         translate([0,0,z0]) dev_cutouts(DEV_ID[i]);
-        post_sites()
-            translate([0,0,z0-0.1]) cylinder(d=2.8, h=C_TOP+0.2);
+        each_post()
+            translate([0,0,0]) cylinder(d=2.8, h=400, center=true);
     }
 }
 

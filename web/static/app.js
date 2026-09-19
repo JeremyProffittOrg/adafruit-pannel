@@ -4,10 +4,18 @@ let layout = {
   cols: 5,
   rows: 4,
   inner_h: 25,
+  edge_style: "round",
+  edge_mm: 2,
   tilts: [0, 0, 0, 0],
   devices: [],
   walls: [],
 };
+window.PANEL_LAYOUT = layout;
+
+function bumpPreview() {
+  window.PANEL_LAYOUT = layout;
+  if (window.rebuildPreview) window.rebuildPreview();
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -39,6 +47,7 @@ function renderTilts() {
     inp.step = 5;
     inp.addEventListener("input", () => {
       layout.tilts[i] = Number(inp.value) || 0;
+      bumpPreview();
     });
     lab.appendChild(inp);
     box.appendChild(lab);
@@ -93,18 +102,22 @@ function stamp(c, r) {
   });
   layout.devices.push({ id, c, r });
   renderGrid();
+  bumpPreview();
 }
 
 function fillDevices() {
   const sel = $("device");
   const wsel = $("wall-dev");
+  const q = ($("devfilter")?.value || "").toLowerCase();
   sel.innerHTML = "";
   wsel.innerHTML = "";
   for (const d of LIB.devices) {
     byId[d.id] = d;
+    const label = `${d.category}: ${d.name}`;
+    if (q && !label.toLowerCase().includes(q)) continue;
     const opt = document.createElement("option");
     opt.value = d.id;
-    opt.textContent = `${d.category}: ${d.name}`;
+    opt.textContent = label;
     sel.appendChild(opt);
     if (d.place === "wall") {
       const w = document.createElement("option");
@@ -142,13 +155,19 @@ function syncSize() {
   layout.cols = Number($("cols").value) || 1;
   layout.rows = Number($("rows").value) || 1;
   layout.inner_h = Number($("inner").value) || 25;
+  layout.edge_style = $("edge")?.value || "round";
+  layout.edge_mm = Number($("edgemm")?.value) || 2;
   renderTilts();
   renderGrid();
+  bumpPreview();
 }
 
 $("cols").addEventListener("input", syncSize);
 $("rows").addEventListener("input", syncSize);
 $("inner").addEventListener("input", syncSize);
+$("edge").addEventListener("change", syncSize);
+$("edgemm").addEventListener("input", syncSize);
+$("devfilter").addEventListener("input", fillDevices);
 $("add-wall").addEventListener("click", () => {
   layout.walls.push({
     side: $("wall-side").value,
@@ -162,7 +181,7 @@ $("preset-sq").addEventListener("click", () => {
   $("rows").value = 4;
   $("inner").value = 25;
   layout = {
-    cols: 5, rows: 4, inner_h: 25, tilts: [0, 0, 0, 0], walls: [],
+    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, tilts: [0, 0, 0, 0], walls: [],
     devices: [
       { id: "neoslider", c: 0, r: 0 },
       { id: "neoslider", c: 1, r: 0 },
@@ -178,7 +197,7 @@ $("preset-tilt").addEventListener("click", () => {
   $("rows").value = 6;
   $("inner").value = 25;
   layout = {
-    cols: 4, rows: 6, inner_h: 25,
+    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2,
     tilts: [0, 0, 0, 30, 30, -30],
     devices: [],
     walls: [],

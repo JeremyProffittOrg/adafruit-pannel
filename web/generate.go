@@ -11,12 +11,14 @@ import (
 )
 
 type Layout struct {
-	Cols    int           `json:"cols"`
-	Rows    int           `json:"rows"`
-	InnerH  float64       `json:"inner_h"`
-	Tilts   []float64     `json:"tilts"`
-	Devices []PlacedDev   `json:"devices"`
-	Walls   []PlacedWall  `json:"walls"`
+	Cols      int          `json:"cols"`
+	Rows      int          `json:"rows"`
+	InnerH    float64      `json:"inner_h"`
+	Tilts     []float64    `json:"tilts"`
+	EdgeStyle string       `json:"edge_style"`
+	EdgeMM    float64      `json:"edge_mm"`
+	Devices   []PlacedDev  `json:"devices"`
+	Walls     []PlacedWall `json:"walls"`
 }
 
 type PlacedDev struct {
@@ -52,8 +54,15 @@ func writeLayout(path, part string, l Layout) error {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "// generated %s\n", time.Now().Format(time.RFC3339))
+	if l.EdgeStyle == "" {
+		l.EdgeStyle = "round"
+	}
+	if l.EdgeMM <= 0 {
+		l.EdgeMM = 2
+	}
 	fmt.Fprintf(&b, "PART = \"%s\";\n", scadEscape(part))
 	fmt.Fprintf(&b, "COLS = %d;\nROWS = %d;\nINNER_H = %.3f;\n", l.Cols, l.Rows, l.InnerH)
+	fmt.Fprintf(&b, "EDGE_STYLE = \"%s\";\nEDGE_MM = %.3f;\n", scadEscape(l.EdgeStyle), l.EdgeMM)
 	b.WriteString("TILTS = [")
 	for i, t := range l.Tilts[:l.Rows] {
 		if i > 0 {
