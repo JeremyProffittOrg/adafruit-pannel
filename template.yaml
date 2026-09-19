@@ -92,7 +92,6 @@ Resources:
           PANEL_ROLE: render
           BAMBU_S3_BUCKET: perq-export-public-759775734231
           JOBS_S3_PREFIX: dl/adafruit-pannel/bambu/jobs
-          OPENSCAD: /usr/bin/openscad
           HOME: /tmp
       Policies:
         - Statement:

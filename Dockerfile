@@ -9,11 +9,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /out/bootstrap ./web
 FROM --platform=linux/arm64 openscad/openscad:dev
 USER root
 RUN (apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*) || true
-RUN OP=$(command -v openscad || command -v openscad-nightly) \
- && test -n "$OP" \
- && ln -sf "$OP" /usr/bin/openscad \
- && ln -sf "$OP" /usr/local/bin/openscad \
- && /usr/bin/openscad --version
+RUN command -v openscad && openscad --version
 WORKDIR /var/task
 COPY --from=build /out/bootstrap /var/task/bootstrap
 COPY cad/case.scad cad/devices.scad /var/task/cad/
@@ -21,6 +17,6 @@ COPY library/devices.json /var/task/library/
 ENV LAMBDA_TASK_ROOT=/var/task
 ENV HOME=/tmp
 ENV PANEL_ROLE=render
-ENV OPENSCAD=/usr/bin/openscad
 ENV LIBGL_ALWAYS_SOFTWARE=1
+ENV PATH="/usr/local/bin:/usr/bin:${PATH}"
 ENTRYPOINT ["/var/task/bootstrap"]
