@@ -1,10 +1,27 @@
 :root { --ink:#0b0f19; --navy:#0f172a; --line:#64748b; --bg:#e8eef5; --card:#ffffff; --muted:#334155; }
 * { box-sizing: border-box; }
 body { margin:0; font:15px/1.45 Segoe UI, sans-serif; color:var(--ink); background:var(--bg); }
-header { background:var(--navy); color:#e2e8f0; padding:12px 16px; }
-header h1 { margin:0 0 4px; font-size:20px; }
-header p { margin:0; color:#cbd5e1; max-width:70ch; }
-.headrow { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+header { background:var(--navy); color:#e2e8f0; padding:10px 16px; }
+header h1 { margin:0; font-size:20px; }
+.headrow { display:flex; justify-content:space-between; gap:16px; align-items:center; flex-wrap:wrap; }
+.brand { position:relative; display:inline-block; cursor:help; border-bottom:1px dotted #94a3b8; }
+.brand .tip {
+  display:none;
+  position:absolute;
+  left:0;
+  top:calc(100% + 8px);
+  z-index:20;
+  width:max(280px, min(42ch, 70vw));
+  padding:10px 12px;
+  font-size:13px;
+  font-weight:400;
+  line-height:1.45;
+  color:#e2e8f0;
+  background-color:#0b0f19;
+  border:1px solid #64748b;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);
+}
+.brand:hover .tip, .brand:focus .tip { display:block; }
 .who { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
 .who a { color:#93c5fd; }
 textarea { width:100%; font:inherit; }
