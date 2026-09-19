@@ -25,7 +25,7 @@ Parameters:
 
 Globals:
   Function:
-    Timeout: 28
+    Timeout: 60
     MemorySize: 1024
     Architectures: [arm64]
     Runtime: provided.al2023
@@ -80,6 +80,8 @@ Resources:
         Variables:
           TABLE: !Ref Table
           PUBLIC_BASE: !Sub https://${DomainName}
+          BAMBU_S3_BUCKET: perq-export-public-759775734231
+          BAMBU_S3_PREFIX: dl/adafruit-pannel/bambu
           LWA_CLIENT_ID: !Ref LwaClientId
           LWA_CLIENT_SECRET: !Ref LwaClientSecret
           SESSION_SECRET: !Ref SessionSecret
@@ -98,6 +100,10 @@ Resources:
               Resource:
                 - !GetAtt Table.Arn
                 - !Sub "${Table.Arn}/index/*"
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: arn:aws:s3:::perq-export-public-759775734231/dl/adafruit-pannel/bambu/*
       Events:
         Root:
           Type: HttpApi

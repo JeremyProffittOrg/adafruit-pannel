@@ -73,6 +73,8 @@ func newApp() *fiber.App {
 	app.Get("/api/me", handleMe)
 	app.Get("/api/devices", handleDevices)
 	app.Post("/api/generate", handleGenerate)
+	app.Post("/api/bambu-open", handleBambuOpen)
+	app.Get("/api/bambu/:id", handleBambuGet)
 	app.Post("/api/bom", handleBOM)
 
 	api := app.Group("/api", requireUser)

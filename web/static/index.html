@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=15">
+  <link rel="stylesheet" href="/style.css?v=16">
   <script type="importmap">
   {
     "imports": {
@@ -142,8 +142,9 @@
       <h2>Bill of materials</h2>
       <table id="bom"><tbody></tbody></table>
       <h2>Build</h2>
-      <p class="legend">Zip has BOM + OpenSCAD. STL files are included only if this host has OpenSCAD. Print the lid with the visible face on the bed.</p>
+      <p class="legend">Zip has BOM + OpenSCAD. When this host can render STL, the zip also has case.3mf (tray and lid on one Bambu Studio plate). Print the lid with the visible face on the bed.</p>
       <button type="button" id="go" class="primary">Download zip</button>
+      <button type="button" id="bambu">Open in Bambu Studio</button>
       <p id="status" role="status" aria-live="polite"></p>
     </section>
     <section class="col wide" id="pane-view">
@@ -203,7 +204,7 @@
       <span>Library</span>
     </button>
   </nav>
-  <script src="/app.js?v=15"></script>
-  <script type="module" src="/preview.js?v=15"></script>
+  <script src="/app.js?v=16"></script>
+  <script type="module" src="/preview.js?v=16"></script>
 </body>
 </html>

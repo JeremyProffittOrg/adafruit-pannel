@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"path/filepath"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -288,6 +290,56 @@ func handleCasesByPart(c *fiber.Ctx) error {
 		return apiFail(c, err)
 	}
 	return c.JSON(list)
+}
+
+func handleBambuOpen(c *fiber.Ctx) error {
+	var l Layout
+	if err := c.BodyParser(&l); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := validateLayout(&l); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	normalizeLayout(&l)
+	bottom, top, err := renderCaseSTLs(l)
+	if errors.Is(err, errNoOpenSCAD) {
+		return c.Status(503).JSON(fiber.Map{
+			"error": "this host cannot render STL, so it cannot build a Bambu project. Download the zip for OpenSCAD sources.",
+		})
+	}
+	if err != nil {
+		log.Printf("bambu render: %v", err)
+		return c.Status(500).JSON(fiber.Map{"error": "could not render case for Bambu Studio"})
+	}
+	body, err := buildCase3MF(bottom, top)
+	if err != nil {
+		log.Printf("bambu 3mf: %v", err)
+		return c.Status(500).JSON(fiber.Map{"error": "could not pack Bambu project"})
+	}
+	name := bambuFileName(l.Title)
+	_, fileURL, err := publishBambu(c.Context(), name, body)
+	if err != nil {
+		log.Printf("bambu publish: %v", err)
+		return c.Status(500).JSON(fiber.Map{"error": "could not host Bambu project"})
+	}
+	win, mac := bambuOpenURLs(fileURL)
+	return c.JSON(fiber.Map{
+		"url":          fileURL,
+		"name":         name,
+		"open_windows": win,
+		"open_macos":   mac,
+	})
+}
+
+func handleBambuGet(c *fiber.Ctx) error {
+	id := strings.TrimSuffix(c.Params("id"), ".3mf")
+	e, ok := loadCachedBambu(id)
+	if !ok {
+		return c.Status(404).SendString("bambu project expired")
+	}
+	c.Set("Content-Type", "model/3mf")
+	c.Set("Content-Disposition", `attachment; filename="`+e.name+`"`)
+	return c.Send(e.body)
 }
 
 func handleGenerate(c *fiber.Ctx) error {

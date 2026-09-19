@@ -406,7 +406,44 @@ $("go").addEventListener("click", async () => {
     const m = /filename="([^"]+)"/.exec(dispo);
     a.download = m ? m[1] : "panel-case.zip";
     a.click();
-    $("status").textContent = `zip ${blob.size} bytes. BOM and OpenSCAD are inside. Print the lid face-down.`;
+    $("status").textContent = `zip ${blob.size} bytes. BOM, OpenSCAD, and case.3mf (when STL rendered) are inside. Print the lid face-down.`;
+  } catch (e) {
+    $("status").textContent = String(e);
+  } finally {
+    btn.disabled = false;
+  }
+});
+$("bambu")?.addEventListener("click", async () => {
+  const btn = $("bambu");
+  btn.disabled = true;
+  $("status").textContent = "Building Bambu Studio project…";
+  try {
+    const payload = { ...layout, title: $("casetitle")?.value || "" };
+    const res = await fetch("/api/bambu-open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    if (!res.ok) {
+      $("status").textContent = (data && data.error) || text || res.status;
+      return;
+    }
+    if (data && data.url) {
+      const a = document.createElement("a");
+      a.href = data.url;
+      a.download = data.name || "panel-case.3mf";
+      a.click();
+    }
+    const ua = navigator.userAgent || "";
+    const mac = /Mac|iPhone|iPad/i.test(ua);
+    const href = mac ? data.open_macos : data.open_windows;
+    if (href) {
+      window.location.href = href;
+    }
+    $("status").textContent = "Opened Bambu Studio (or downloaded case.3mf). Tray and lid are on one plate.";
   } catch (e) {
     $("status").textContent = String(e);
   } finally {

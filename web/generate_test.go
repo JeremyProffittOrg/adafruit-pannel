@@ -64,6 +64,9 @@ func TestBuildZipIncludesCad(t *testing.T) {
 	if !bytes.Contains([]byte(scad), []byte("FACE_TILT = 0.000;")) {
 		t.Fatalf("job scad missing FACE_TILT = 0.000:\n%s", scad)
 	}
+	if have["bottom.stl"] && !have["case.3mf"] {
+		t.Fatal("zip has STLs but no case.3mf")
+	}
 }
 
 func TestFaceTiltBottomHangZip(t *testing.T) {

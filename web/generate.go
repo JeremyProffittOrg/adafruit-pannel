@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"time"
 )
+
+var errNoOpenSCAD = errors.New("openscad is not on this host")
 
 type CatalogDevice struct {
 	ID       string      `json:"id"`
@@ -231,6 +234,69 @@ func writeLayout(path, part string, l Layout) error {
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
+func openscadAvailable() (string, bool) {
+	exe := openscadPath()
+	if p, err := exec.LookPath(exe); err == nil {
+		exe = p
+	}
+	if _, err := os.Stat(exe); err != nil {
+		return "", false
+	}
+	return exe, true
+}
+
+func renderCaseSTLs(l Layout) (bottom, top []byte, err error) {
+	exe, ok := openscadAvailable()
+	if !ok {
+		return nil, nil, errNoOpenSCAD
+	}
+	tmp, err := os.MkdirTemp("", "panel-stl-*")
+	if err != nil {
+		return nil, nil, err
+	}
+	defer os.RemoveAll(tmp)
+	cad := filepath.Join(tmp, "cad")
+	genDir := filepath.Join(cad, "generated")
+	if err := os.MkdirAll(genDir, 0o755); err != nil {
+		return nil, nil, err
+	}
+	root := repoRoot()
+	for _, name := range []string{"case.scad", "devices.scad"} {
+		b, err := os.ReadFile(filepath.Join(root, "cad", name))
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := os.WriteFile(filepath.Join(cad, name), b, 0o644); err != nil {
+			return nil, nil, err
+		}
+	}
+	bottomSCAD := filepath.Join(genDir, "job-bottom.scad")
+	topSCAD := filepath.Join(genDir, "job-top.scad")
+	if err := writeLayout(bottomSCAD, "bottom", l); err != nil {
+		return nil, nil, err
+	}
+	if err := writeLayout(topSCAD, "top", l); err != nil {
+		return nil, nil, err
+	}
+	bottomPath := filepath.Join(genDir, "bottom.stl")
+	topPath := filepath.Join(genDir, "top.stl")
+	if err := renderPart(exe, bottomSCAD, bottomPath, "bottom"); err != nil {
+		return nil, nil, err
+	}
+	if err := renderPart(exe, topSCAD, topPath, "top"); err != nil {
+		return nil, nil, err
+	}
+	bottom, err = os.ReadFile(bottomPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	top, err = os.ReadFile(topPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	return bottom, top, nil
+}
+
 func openscadPath() string {
 	if p := os.Getenv("OPENSCAD"); p != "" {
 		return p
@@ -238,6 +304,8 @@ func openscadPath() string {
 	candidates := []string{
 		`C:\Users\Jeremy\tools\openscad-nightly\openscad.exe`,
 		`C:\Program Files\OpenSCAD\openscad.exe`,
+		"/opt/openscad/openscad",
+		"/var/task/openscad/openscad",
 		"openscad",
 	}
 	for _, p := range candidates {
@@ -428,6 +496,7 @@ func bomMarkdown(l Layout) string {
 		fmt.Fprintf(&b, "| %d | %s | %s | %s |\n", row.Qty, row.Item, row.Kind, link)
 	}
 	b.WriteString("\nPrint the lid as exported (visible face on the bed).\n")
+	b.WriteString("If this zip has case.3mf, open that file in Bambu Studio. Tray and lid sit on one plate.\n")
 	b.WriteString("If this zip has no STL files, install OpenSCAD and run from the zip root:\n\n")
 	b.WriteString("    openscad -o bottom.stl cad/generated/job-bottom.scad\n")
 	b.WriteString("    openscad -o top.stl cad/generated/job-top.scad\n")
@@ -498,11 +567,8 @@ func buildZipBytes(l Layout) ([]byte, error) {
 	if err := addFile("cad/devices.scad", filepath.Join(cad, "devices.scad")); err != nil {
 		return nil, err
 	}
-	exe := openscadPath()
-	if p, err := exec.LookPath(exe); err == nil {
-		exe = p
-	}
-	if _, err := os.Stat(exe); err == nil {
+	exe, ok := openscadAvailable()
+	if ok {
 		bottom := filepath.Join(genDir, "bottom.stl")
 		top := filepath.Join(genDir, "top.stl")
 		if err := renderPart(exe, bottomSCAD, bottom, "bottom"); err != nil {
@@ -517,6 +583,11 @@ func buildZipBytes(l Layout) ([]byte, error) {
 		if err := addFile("top.stl", top); err != nil {
 			return nil, err
 		}
+		threemf, err := buildCase3MF(files["bottom.stl"], files["top.stl"])
+		if err != nil {
+			return nil, err
+		}
+		files["case.3mf"] = threemf
 	}
 	lj, err := layoutJSON(l)
 	if err != nil {
@@ -532,7 +603,7 @@ func buildZipBytes(l Layout) ([]byte, error) {
 		"BOM.md", "BOM.csv", "layout.json",
 		"cad/case.scad", "cad/devices.scad",
 		"cad/generated/job-bottom.scad", "cad/generated/job-top.scad",
-		"bottom.stl", "top.stl",
+		"bottom.stl", "top.stl", "case.3mf",
 	} {
 		b, ok := files[name]
 		if !ok {
