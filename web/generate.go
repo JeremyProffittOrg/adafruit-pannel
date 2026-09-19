@@ -50,6 +50,7 @@ func loadCatalog(root string) error {
 }
 
 type Layout struct {
+	Title     string       `json:"title,omitempty"`
 	Cols      int          `json:"cols"`
 	Rows      int          `json:"rows"`
 	InnerH    float64      `json:"inner_h"`

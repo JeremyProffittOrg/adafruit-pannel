@@ -325,6 +325,18 @@ export function rebuildPreview() {
   }
   root = build(layout());
   scene.add(root);
+  const box = new THREE.Box3().setFromObject(root);
+  if (!box.isEmpty() && controls && camera) {
+    const c = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 40);
+    controls.target.copy(c);
+    camera.position.set(c.x + maxDim * 1.15, c.y + maxDim * 0.95, c.z + maxDim * 1.25);
+    camera.near = 0.5;
+    camera.far = Math.max(4000, maxDim * 20);
+    camera.updateProjectionMatrix();
+    controls.update();
+  }
 }
 
 function init() {

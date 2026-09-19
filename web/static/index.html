@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Panel case builder</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">
   {
@@ -18,7 +20,7 @@
     <div class="headrow">
       <div>
         <h1>Panel case builder</h1>
-        <p>Closed 1.00 in case. Four walls. The lid is a shoebox cover: a skirt drops over the tray, short rim pegs locate it, M3 from below. Sign in with Amazon to save folders, cases, and notes. Generate a zip with the bill of materials when the preview is right.</p>
+        <p>1.00 in grid. Closed four-wall tray, shoebox lid. Boards screw to the lid. Sign in with Amazon to keep projects.</p>
       </div>
       <div class="who">
         <span id="wholabel">not signed in</span>
@@ -43,7 +45,9 @@
         <h2>Saved cases</h2>
         <ul id="caselist"></ul>
         <label>Case title <input id="casetitle" placeholder="name this case"></label>
-        <button type="button" id="savecase" class="primary">Save case in folder</button>
+        <button type="button" id="newcase">New case</button>
+        <button type="button" id="savecase" class="primary">Save</button>
+        <button type="button" id="saveas">Save as copy</button>
         <h2>Notes</h2>
         <textarea id="notetext" rows="3" placeholder="note on this case"></textarea>
         <button type="button" id="addnote">Add note</button>
@@ -72,9 +76,12 @@
       <button type="button" data-view="assembly">Together</button>
       <button type="button" data-view="bottom">Bottom</button>
       <button type="button" data-view="top">Top</button>
+      <h2>Bill of materials</h2>
+      <table id="bom"><tbody></tbody></table>
       <h2>Build</h2>
-      <button type="button" id="go" class="primary">Generate zip (BOM + files)</button>
-      <p id="status"></p>
+      <p class="legend">Zip has BOM + OpenSCAD. STL files are included only if this host has OpenSCAD. Print the lid with the visible face on the bed.</p>
+      <button type="button" id="go" class="primary">Download zip</button>
+      <p id="status" role="status" aria-live="polite"></p>
     </section>
     <section class="col wide">
       <h2>3D preview (drag to orbit)</h2>
@@ -86,11 +93,12 @@
     </section>
     <section class="col">
       <h2>Device</h2>
-      <input id="devfilter" placeholder="filter devices" type="search">
+      <label>Filter <input id="devfilter" placeholder="name or brand" type="search"></label>
       <select id="device" size="16"></select>
       <p id="devinfo"></p>
       <p><a id="devurl" href="#" target="_blank" rel="noopener" hidden>Manufacturer page</a></p>
       <h2>Cases with this part</h2>
+      <p id="partcases-hint" class="legend">Sign in to list your cases that use this part.</p>
       <ul id="partcases"></ul>
       <h2>Wall STEMMA / M5 unit</h2>
       <select id="wall-dev"></select>
@@ -105,6 +113,10 @@
       <ul id="walls"></ul>
     </section>
   </main>
+  <footer>
+    <a href="/privacy.html">Privacy</a>
+    <span>M3 from below into lid pegs. Lid prints face-down.</span>
+  </footer>
   <script src="/app.js"></script>
   <script type="module" src="/preview.js"></script>
 </body>

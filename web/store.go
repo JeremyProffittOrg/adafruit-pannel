@@ -152,6 +152,18 @@ func (s *Store) putFolder(ctx context.Context, uid string, f Folder) (Folder, er
 	if f.ID == "" {
 		f.ID = uuid.NewString()
 		f.Created = nowISO()
+	} else if f.Created == "" {
+		items, _ := s.get(ctx, userPK(uid), "FOLDER#"+f.ID)
+		if items != nil {
+			var old Folder
+			_ = attributevalue.UnmarshalMap(items, &old)
+			if old.Created != "" {
+				f.Created = old.Created
+			}
+		}
+		if f.Created == "" {
+			f.Created = nowISO()
+		}
 	}
 	if f.Name == "" {
 		f.Name = "Untitled folder"
@@ -410,8 +422,13 @@ func (s *Store) search(ctx context.Context, uid, q string) ([]SearchHit, error) 
 		return nil, err
 	}
 	for _, rec := range cases {
-		blob := strings.ToLower(rec.Title + " " + rec.Notes + " " + strings.Join(rec.Parts, " "))
-		if strings.Contains(blob, q) {
+		blob := rec.Title + " " + rec.Notes + " " + strings.Join(rec.Parts, " ")
+		for _, p := range rec.Parts {
+			if def, ok := catalogByID[p]; ok {
+				blob += " " + def.Name + " " + def.Brand + " " + def.URL
+			}
+		}
+		if strings.Contains(strings.ToLower(blob), q) {
 			hits = append(hits, SearchHit{Kind: "case", ID: rec.ID, Title: rec.Title, Text: rec.Notes})
 		}
 	}

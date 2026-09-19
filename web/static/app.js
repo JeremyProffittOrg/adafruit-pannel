@@ -62,14 +62,18 @@ function renderGrid() {
   const occ = occMap();
   for (let r = 0; r < layout.rows; r++) {
     for (let c = 0; c < layout.cols; c++) {
-      const el = document.createElement("div");
+      const el = document.createElement("button");
+      el.type = "button";
       el.className = "cell";
       const hit = occ[`${c},${r}`];
       if (hit) {
         el.classList.add(byId[hit.id]?.place === "bottom" ? "bottom" : "on");
         if (hit.c === c && hit.r === r) el.textContent = byId[hit.id]?.name || hit.id;
+        else el.textContent = "";
+        el.setAttribute("aria-label", `${byId[hit.id]?.name || hit.id} at column ${c} row ${r}`);
       } else {
         el.textContent = `${c},${r}`;
+        el.setAttribute("aria-label", `empty cell column ${c} row ${r}`);
       }
       el.addEventListener("click", () => stamp(c, r));
       g.appendChild(el);
@@ -87,6 +91,8 @@ function stamp(c, r) {
       return !(c >= d.c && c < d.c + dd.cells_x && r >= d.r && r < d.r + dd.cells_y);
     });
     renderGrid();
+    bumpPreview();
+    renderBOM();
     return;
   }
   if (c + def.cells_x > layout.cols || r + def.cells_y > layout.rows) {
@@ -104,6 +110,7 @@ function stamp(c, r) {
   layout.devices.push({ id, c, r });
   renderGrid();
   bumpPreview();
+  renderBOM();
 }
 
 function fillDevices() {
@@ -112,14 +119,17 @@ function fillDevices() {
   const q = ($("devfilter")?.value || "").toLowerCase();
   sel.innerHTML = "";
   wsel.innerHTML = "";
+  const rest = [];
+  let emptyOpt = null;
   for (const d of LIB.devices) {
     byId[d.id] = d;
     const label = `${d.category}: ${d.name}`;
-    if (q && !label.toLowerCase().includes(q)) continue;
+    if (q && !label.toLowerCase().includes(q) && d.id !== "empty") continue;
     const opt = document.createElement("option");
     opt.value = d.id;
-    opt.textContent = label;
-    sel.appendChild(opt);
+    opt.textContent = d.id === "empty" ? "eraser — click a cell to clear" : label;
+    if (d.id === "empty") emptyOpt = opt;
+    else rest.push(opt);
     if (d.place === "wall") {
       const w = document.createElement("option");
       w.value = d.id;
@@ -127,6 +137,8 @@ function fillDevices() {
       wsel.appendChild(w);
     }
   }
+  for (const o of rest) sel.appendChild(o);
+  if (emptyOpt) sel.appendChild(emptyOpt);
   if (!sel.dataset.bound) {
     sel.dataset.bound = "1";
     sel.addEventListener("change", () => {
@@ -170,6 +182,8 @@ function renderWalls() {
     li.appendChild(rm);
     ul.appendChild(li);
   });
+  bumpPreview();
+  renderBOM();
 }
 
 function syncSize() {
@@ -181,6 +195,7 @@ function syncSize() {
   renderTilts();
   renderGrid();
   bumpPreview();
+  renderBOM();
 }
 
 $("cols").addEventListener("input", syncSize);
@@ -198,6 +213,8 @@ $("add-wall").addEventListener("click", () => {
   renderWalls();
 });
 $("preset-sq").addEventListener("click", () => {
+  currentCaseId = "";
+  if ($("casetitle")) $("casetitle").value = "3 sliders + 2 quad rotaries";
   $("cols").value = 5;
   $("rows").value = 4;
   $("inner").value = 25;
@@ -214,6 +231,8 @@ $("preset-sq").addEventListener("click", () => {
   syncSize();
 });
 $("preset-tilt").addEventListener("click", () => {
+  currentCaseId = "";
+  if ($("casetitle")) $("casetitle").value = "tilt demo";
   $("cols").value = 4;
   $("rows").value = 6;
   $("inner").value = 25;
@@ -226,26 +245,85 @@ $("preset-tilt").addEventListener("click", () => {
   syncSize();
 });
 $("go").addEventListener("click", async () => {
-  $("status").textContent = "Building zip (BOM + SCAD, STL if OpenSCAD is on this host).";
-  const res = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(layout),
-  });
-  if (!res.ok) {
-    $("status").textContent = await res.text();
-    return;
+  const btn = $("go");
+  btn.disabled = true;
+  $("status").textContent = "Building zip…";
+  try {
+    const payload = { ...layout, title: $("casetitle")?.value || "" };
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      $("status").textContent = await res.text();
+      return;
+    }
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const dispo = res.headers.get("Content-Disposition") || "";
+    const m = /filename="([^"]+)"/.exec(dispo);
+    a.download = m ? m[1] : "panel-case.zip";
+    a.click();
+    $("status").textContent = `zip ${blob.size} bytes. BOM and OpenSCAD are inside. Print the lid face-down.`;
+  } catch (e) {
+    $("status").textContent = String(e);
+  } finally {
+    btn.disabled = false;
   }
-  const blob = await res.blob();
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "panel-case.zip";
-  a.click();
-  $("status").textContent = `zip ${blob.size} bytes. Includes BOM.csv / BOM.md and manufacturer links.`;
 });
 
 let signedIn = false;
 let currentCaseId = "";
+
+function renderBOM() {
+  const tb = document.querySelector("#bom tbody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  const lines = [];
+  lines.push({ qty: 1, item: "Bottom tray (printed)", url: "" });
+  lines.push({ qty: 1, item: "Lid (printed, face on bed)", url: "" });
+  let m25 = 0;
+  for (const d of layout.devices) m25 += (byId[d.id]?.holes || []).length;
+  for (const w of layout.walls) m25 += (byId[w.id]?.holes || []).length;
+  let posts = 0;
+  for (let r = 0; r < layout.rows; r++) {
+    const t = (layout.tilts && layout.tilts[r]) || 0;
+    if (Math.abs(t) < 0.05) posts += 2;
+  }
+  posts += layout.cols > 1 ? 2 * (layout.cols - 1) : 2;
+  if (posts) lines.push({ qty: posts, item: "M3 screw from below (tray into lid peg)", url: "" });
+  if (m25) lines.push({ qty: m25, item: "M2.5x6 screw into PCB", url: "" });
+  const qty = {};
+  const add = (id) => {
+    if (!id || id === "empty") return;
+    qty[id] = (qty[id] || 0) + 1;
+  };
+  for (const d of layout.devices) add(d.id);
+  for (const w of layout.walls) add(w.id);
+  for (const id of Object.keys(qty).sort()) {
+    const def = byId[id] || {};
+    lines.push({ qty: qty[id], item: def.name || id, url: def.url || "" });
+  }
+  for (const row of lines) {
+    const tr = document.createElement("tr");
+    const q = document.createElement("td");
+    q.textContent = row.qty;
+    const n = document.createElement("td");
+    if (row.url) {
+      const a = document.createElement("a");
+      a.href = row.url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = row.item;
+      n.appendChild(a);
+    } else n.textContent = row.item;
+    tr.appendChild(q);
+    tr.appendChild(n);
+    tb.appendChild(tr);
+  }
+}
 
 async function api(path, opt) {
   const res = await fetch(path, opt);
@@ -300,9 +378,14 @@ async function refreshCases() {
     rm.textContent = "delete";
     rm.onclick = async (ev) => {
       ev.stopPropagation();
-      await api(`/api/cases/${rec.id}`, { method: "DELETE" });
-      if (currentCaseId === rec.id) currentCaseId = "";
-      await refreshCases();
+      if (!confirm(`Delete case “${rec.title}”?`)) return;
+      try {
+        await api(`/api/cases/${rec.id}`, { method: "DELETE" });
+        if (currentCaseId === rec.id) currentCaseId = "";
+        await refreshCases();
+      } catch (e) {
+        $("status").textContent = String(e);
+      }
     };
     li.appendChild(rm);
     ul.appendChild(li);
@@ -332,6 +415,8 @@ async function loadPartCases(part) {
   const ul = $("partcases");
   if (!ul) return;
   ul.innerHTML = "";
+  const hint = $("partcases-hint");
+  if (hint) hint.hidden = signedIn;
   if (!signedIn || !part) return;
   try {
     const list = await api(`/api/parts/${encodeURIComponent(part)}/cases`);
@@ -354,11 +439,13 @@ async function loadPartCases(part) {
 async function bootLibrary() {
   const me = await api("/api/me");
   signedIn = !!me.login;
+  document.body.classList.toggle("signed-in", signedIn);
   $("wholabel").textContent = signedIn ? (me.name || me.email || "signed in") : "not signed in";
   $("loginbtn").hidden = signedIn;
   $("logoutbtn").hidden = !signedIn;
   $("libhint").hidden = signedIn;
   $("libbody").hidden = !signedIn;
+  if ($("partcases-hint")) $("partcases-hint").hidden = signedIn;
   if (!signedIn) return;
   await refreshFolders();
   await refreshCases();
@@ -369,7 +456,13 @@ $("dosearch")?.addEventListener("click", async () => {
   const ul = $("hits");
   ul.innerHTML = "";
   if (!q) return;
-  const hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
+  let hits;
+  try {
+    hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
+  } catch (e) {
+    $("status").textContent = String(e);
+    return;
+  }
   for (const h of hits) {
     const li = document.createElement("li");
     li.textContent = `${h.kind}: ${h.title || ""} ${h.text || ""}`.trim();
@@ -390,39 +483,69 @@ $("q")?.addEventListener("keydown", (e) => {
 $("addfolder")?.addEventListener("click", async () => {
   const name = $("foldername").value.trim();
   if (!name) return;
-  const f = await api("/api/folders", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
-  $("foldername").value = "";
-  await refreshFolders();
-  $("folder").value = f.id;
-  await refreshCases();
+  try {
+    const f = await api("/api/folders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    $("foldername").value = "";
+    await refreshFolders();
+    $("folder").value = f.id;
+    await refreshCases();
+  } catch (e) {
+    $("status").textContent = String(e);
+  }
 });
 $("delfolder")?.addEventListener("click", async () => {
   const id = $("folder").value;
   if (!id) return;
-  await api(`/api/folders/${id}`, { method: "DELETE" });
-  await refreshFolders();
-  await refreshCases();
+  const name = $("folder").selectedOptions[0]?.textContent || "folder";
+  if (!confirm(`Delete folder “${name}”? Cases move to no folder.`)) return;
+  try {
+    await api(`/api/folders/${id}`, { method: "DELETE" });
+    await refreshFolders();
+    await refreshCases();
+  } catch (e) {
+    $("status").textContent = String(e);
+  }
 });
 $("folder")?.addEventListener("change", () => refreshCases());
-$("savecase")?.addEventListener("click", async () => {
+async function persistCase(asCopy) {
   const rec = {
-    id: currentCaseId || undefined,
+    id: asCopy ? undefined : (currentCaseId || undefined),
     title: $("casetitle").value.trim() || "Untitled case",
     folder_id: $("folder").value,
     layout,
   };
-  const out = await api(currentCaseId ? `/api/cases/${currentCaseId}` : "/api/cases", {
-    method: currentCaseId ? "PUT" : "POST",
+  const updating = !asCopy && currentCaseId;
+  const out = await api(updating ? `/api/cases/${currentCaseId}` : "/api/cases", {
+    method: updating ? "PUT" : "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(rec),
   });
   currentCaseId = out.id;
   $("status").textContent = `saved ${out.title}`;
   await refreshCases();
+  await loadNotes();
+}
+$("savecase")?.addEventListener("click", async () => {
+  try { await persistCase(false); } catch (e) { $("status").textContent = String(e); }
+});
+$("saveas")?.addEventListener("click", async () => {
+  try { await persistCase(true); } catch (e) { $("status").textContent = String(e); }
+});
+$("newcase")?.addEventListener("click", () => {
+  currentCaseId = "";
+  $("casetitle").value = "";
+  $("notelist").innerHTML = "";
+  $("cols").value = 5;
+  $("rows").value = 4;
+  $("inner").value = 25;
+  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, tilts: [0, 0, 0, 0], devices: [], walls: [] };
+  syncSize();
+  renderWalls();
+  $("status").textContent = "new empty case — not saved yet";
 });
 $("addnote")?.addEventListener("click", async () => {
   if (!currentCaseId) {
@@ -448,6 +571,7 @@ fetch("/api/devices")
     window.PANEL_BY_ID = byId;
     syncSize();
     $("preset-sq").click();
+    renderBOM();
     bootLibrary().catch((e) => {
       $("status").textContent = String(e);
     });

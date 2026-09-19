@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -38,6 +39,21 @@ func newApp() *fiber.App {
 		BodyLimit: 2 << 20,
 	})
 	app.Use(recover.New())
+	app.Use(func(c *fiber.Ctx) error {
+		c.Set("X-Content-Type-Options", "nosniff")
+		c.Set("X-Frame-Options", "DENY")
+		c.Set("Referrer-Policy", "no-referrer")
+		c.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'")
+		p := c.Path()
+		if p == "/" || strings.HasSuffix(p, ".html") {
+			c.Set("Cache-Control", "no-store")
+		} else if strings.HasPrefix(p, "/api/") {
+			c.Set("Cache-Control", "no-store")
+		} else {
+			c.Set("Cache-Control", "public, max-age=300")
+		}
+		return c.Next()
+	})
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") == "" {
 		app.Use(logger.New())
 	}
@@ -56,6 +72,7 @@ func newApp() *fiber.App {
 	app.Get("/api/me", handleMe)
 	app.Get("/api/devices", handleDevices)
 	app.Post("/api/generate", handleGenerate)
+	app.Post("/api/bom", handleBOM)
 
 	api := app.Group("/api", requireUser)
 	api.Get("/folders", handleFolders)
