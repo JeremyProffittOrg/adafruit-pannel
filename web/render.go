@@ -91,11 +91,11 @@ func putJobStatus(ctx context.Context, id string, st jobStatus) error {
 }
 
 func getJobStatus(ctx context.Context, id string) (jobStatus, bool, error) {
-	if v, ok := localJobs.Load(id); ok {
-		return v.(jobStatus), true, nil
-	}
 	bucket := jobsBucket()
 	if bucket == "" {
+		if v, ok := localJobs.Load(id); ok {
+			return v.(jobStatus), true, nil
+		}
 		return jobStatus{}, false, nil
 	}
 	cfg, err := config.LoadDefaultConfig(ctx)
@@ -195,13 +195,12 @@ func handleRenderEvent(ctx context.Context, job renderJob) error {
 
 func runRenderJob(ctx context.Context, id string, l Layout) error {
 	_ = putJobStatus(ctx, id, jobStatus{State: "running"})
-	if _, ok := openscadAvailable(); !ok {
-		err := putJobStatus(ctx, id, jobStatus{State: "error", Error: "this host cannot render STL"})
-		if err != nil {
-			return err
-		}
-		return errNoOpenSCAD
+	exe, ok := openscadAvailable()
+	if !ok {
+		_ = putJobStatus(ctx, id, jobStatus{State: "error", Error: "this host cannot render STL"})
+		return nil
 	}
+	log.Printf("render %s using %s", id, exe)
 	zipBody, err := buildZipBytes(l)
 	if err != nil {
 		_ = putJobStatus(ctx, id, jobStatus{State: "error", Error: "render failed"})

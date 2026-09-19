@@ -9,7 +9,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /out/bootstrap ./web
 FROM --platform=linux/arm64 openscad/openscad:dev
 USER root
 RUN (apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*) || true
-RUN command -v openscad && openscad --version
+RUN OP=$(command -v openscad || command -v openscad-nightly) \
+ && test -n "$OP" \
+ && ln -sf "$OP" /usr/bin/openscad \
+ && ln -sf "$OP" /usr/local/bin/openscad \
+ && /usr/bin/openscad --version
 WORKDIR /var/task
 COPY --from=build /out/bootstrap /var/task/bootstrap
 COPY cad/case.scad cad/devices.scad /var/task/cad/

@@ -258,14 +258,39 @@ func writeLayout(path, part string, l Layout) error {
 }
 
 func openscadAvailable() (string, bool) {
-	exe := openscadPath()
-	if p, err := exec.LookPath(exe); err == nil {
-		exe = p
-	}
-	if _, err := os.Stat(exe); err != nil {
+	seen := map[string]bool{}
+	try := func(exe string) (string, bool) {
+		if exe == "" || seen[exe] {
+			return "", false
+		}
+		seen[exe] = true
+		if p, err := exec.LookPath(exe); err == nil {
+			exe = p
+		}
+		if _, err := os.Stat(exe); err == nil {
+			return exe, true
+		}
 		return "", false
 	}
-	return exe, true
+	if p, ok := try(os.Getenv("OPENSCAD")); ok {
+		return p, true
+	}
+	for _, c := range []string{
+		`C:\Users\Jeremy\tools\openscad-nightly\openscad.exe`,
+		`C:\Program Files\OpenSCAD\openscad.exe`,
+		"/usr/bin/openscad-nightly",
+		"/usr/bin/openscad",
+		"/usr/local/bin/openscad",
+		"/opt/openscad/openscad",
+		"/var/task/openscad/openscad",
+		"openscad-nightly",
+		"openscad",
+	} {
+		if p, ok := try(c); ok {
+			return p, true
+		}
+	}
+	return "", false
 }
 
 func renderCaseSTLs(l Layout) (bottom, top []byte, err error) {
@@ -318,22 +343,8 @@ func renderCaseSTLs(l Layout) (bottom, top []byte, err error) {
 }
 
 func openscadPath() string {
-	if p := os.Getenv("OPENSCAD"); p != "" {
+	if p, ok := openscadAvailable(); ok {
 		return p
-	}
-	candidates := []string{
-		`C:\Users\Jeremy\tools\openscad-nightly\openscad.exe`,
-		`C:\Program Files\OpenSCAD\openscad.exe`,
-		"/usr/bin/openscad-nightly",
-		"/usr/bin/openscad",
-		"/opt/openscad/openscad",
-		"/var/task/openscad/openscad",
-		"openscad",
-	}
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
 	}
 	return "openscad"
 }
