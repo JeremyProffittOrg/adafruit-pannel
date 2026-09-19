@@ -298,6 +298,7 @@ func handleGenerate(c *fiber.Ctx) error {
 	if err := validateLayout(&l); err != nil {
 		return c.Status(400).SendString(err.Error())
 	}
+	normalizeLayout(&l)
 	body, err := buildZipBytes(l)
 	if err != nil {
 		log.Printf("generate: %v", err)
@@ -317,6 +318,7 @@ func handleBOM(c *fiber.Ctx) error {
 	if err := validateLayout(&l); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
+	normalizeLayout(&l)
 	return c.JSON(fiber.Map{"lines": bomLines(l), "markdown": bomMarkdown(l)})
 }
 

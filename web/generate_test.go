@@ -60,6 +60,21 @@ func TestBuildZipIncludesCad(t *testing.T) {
 	}
 }
 
+func TestBomDefaultsEdge(t *testing.T) {
+	if err := loadCatalog(".."); err != nil {
+		t.Fatal(err)
+	}
+	l := Layout{Cols: 5, Rows: 4, InnerH: 25, Hang: true}
+	normalizeLayout(&l)
+	if l.EdgeStyle != "round" || l.EdgeMM != 2 {
+		t.Fatalf("edge %s %v", l.EdgeStyle, l.EdgeMM)
+	}
+	md := bomMarkdown(l)
+	if !bytes.Contains([]byte(md), []byte("Edge round 2.0 mm")) {
+		t.Fatalf("markdown: %s", md)
+	}
+}
+
 func TestPostCountSkipsTiltedFrontBack(t *testing.T) {
 	l := Layout{Cols: 4, Rows: 6, Tilts: []float64{0, 0, 0, 30, 30, -30}}
 	// left/right on rows 0,1,2 only (6) + front on row 0 (3) = 9; no back

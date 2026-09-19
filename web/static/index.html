@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=11">
+  <link rel="stylesheet" href="/style.css?v=12">
   <script type="importmap">
   {
     "imports": {
@@ -45,7 +45,6 @@
         <button type="button" id="delfolder">Delete folder</button>
         <h2>Saved cases</h2>
         <ul id="caselist"></ul>
-        <label>Case title <input id="casetitle" placeholder="name this case"></label>
         <button type="button" id="newcase">New case</button>
         <button type="button" id="savecase" class="primary">Save</button>
         <button type="button" id="saveas">Save as copy</button>
@@ -63,6 +62,10 @@
           <col class="val">
         </colgroup>
         <tbody>
+          <tr>
+            <th><label for="casetitle">Title</label></th>
+            <td><input id="casetitle" placeholder="name this case"></td>
+          </tr>
           <tr>
             <th><label for="cols">Columns</label></th>
             <td><input id="cols" type="number" min="1" max="16" value="5"></td>
@@ -102,10 +105,6 @@
       <h2>Presets</h2>
       <button type="button" id="preset-sq">3 sliders + 2 quad rotaries</button>
       <button type="button" id="preset-tilt">3 flat, 2 at +30, 1 at -30</button>
-      <h2>3D view</h2>
-      <button type="button" data-view="assembly">Together</button>
-      <button type="button" data-view="bottom">Bottom</button>
-      <button type="button" data-view="top">Top</button>
       <h2>Bill of materials</h2>
       <table id="bom"><tbody></tbody></table>
       <h2>Build</h2>
@@ -116,6 +115,11 @@
     <section class="col wide" id="pane-view">
       <h2>3D preview (drag to orbit)</h2>
       <p class="legend">Magenta = lid/wall cutouts (slots, shaft holes, windows, grills). Green = PCB. Amber = board bosses. Grey = short rim pegs. Lid skirt hangs over the tray walls.</p>
+      <p>
+        <button type="button" data-view="assembly">Together</button>
+        <button type="button" data-view="bottom">Bottom</button>
+        <button type="button" data-view="top">Top</button>
+      </p>
       <div id="view3d"></div>
       <h2>Top layout</h2>
       <p>Pick a device, click the cell for its top-left. The 3D view updates with the case.</p>
@@ -165,7 +169,7 @@
       <span>Library</span>
     </button>
   </nav>
-  <script src="/app.js?v=11"></script>
-  <script type="module" src="/preview.js?v=11"></script>
+  <script src="/app.js?v=12"></script>
+  <script type="module" src="/preview.js?v=12"></script>
 </body>
 </html>

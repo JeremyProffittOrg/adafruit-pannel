@@ -95,6 +95,9 @@ func normalizeLayout(l *Layout) {
 	}
 	if l.EdgeStyle == "" {
 		l.EdgeStyle = "round"
+		if l.EdgeMM == 0 {
+			l.EdgeMM = 2
+		}
 	}
 	if l.EdgeMM < 0 {
 		l.EdgeMM = 2

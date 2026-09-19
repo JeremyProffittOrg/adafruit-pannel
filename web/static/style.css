@@ -274,6 +274,7 @@ a { color: #7df9ff; }
     display: block;
   }
   body.tab-view #view3d { height: min(58dvh, 520px); }
+  #device { height: 14rem; }
   footer {
     padding: 10px 12px 8px;
     background: #061018;

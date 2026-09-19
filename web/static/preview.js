@@ -82,7 +82,11 @@ function hullBoxes(parent, m0, a, m1, b, mat) {
   };
   for (const p of corners(...a)) pts.push(p.applyMatrix4(m0));
   for (const p of corners(...b)) pts.push(p.applyMatrix4(m1));
-  parent.add(new THREE.Mesh(new ConvexGeometry(pts), mat));
+  try {
+    parent.add(new THREE.Mesh(new ConvexGeometry(pts), mat));
+  } catch {
+    /* skip a degenerate hull */
+  }
 }
 function zSkirtSeg(parent, x, y0, z0, y1, z1, mat) {
   const hx = SKIRT / 2;
@@ -96,7 +100,11 @@ function zSkirtSeg(parent, x, y0, z0, y1, z1, mat) {
     new THREE.Vector3(x - hx, y1, z1 - SKIRT_H),
     new THREE.Vector3(x + hx, y1, z1 - SKIRT_H),
   ];
-  parent.add(new THREE.Mesh(new ConvexGeometry(pts), mat));
+  try {
+    parent.add(new THREE.Mesh(new ConvexGeometry(pts), mat));
+  } catch {
+    /* skip a degenerate skirt segment */
+  }
 }
 
 function roundedRectPath(shape, x, y, w, h, r) {
