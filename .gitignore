@@ -8,6 +8,7 @@ cad/generated/
 cad/out/
 bin/
 docs/views/
+docs/case-views/
 docs/_ses-request.json
 docs/_aws*
 docs/_mail*
