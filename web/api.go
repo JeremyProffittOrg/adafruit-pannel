@@ -342,6 +342,71 @@ func handleBambuGet(c *fiber.Ctx) error {
 	return c.Send(e.body)
 }
 
+func handleRenderStart(c *fiber.Ctx) error {
+	var l Layout
+	if err := c.BodyParser(&l); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := validateLayout(&l); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	normalizeLayout(&l)
+	id, err := startRenderJob(c.Context(), l)
+	if err != nil {
+		log.Printf("render start: %v", err)
+		return c.Status(500).JSON(fiber.Map{"error": "could not start render"})
+	}
+	return c.Status(202).JSON(fiber.Map{"job_id": id})
+}
+
+func handleRenderStatus(c *fiber.Ctx) error {
+	id, err := pathID(c, "id")
+	if err != nil {
+		return err
+	}
+	st, ok, err := getJobStatus(c.Context(), id)
+	if err != nil {
+		return apiFail(c, err)
+	}
+	if !ok {
+		return c.Status(404).JSON(fiber.Map{"error": "unknown job"})
+	}
+	return c.JSON(st)
+}
+
+func handleRenderFile(c *fiber.Ctx) error {
+	id, err := pathID(c, "id")
+	if err != nil {
+		return err
+	}
+	kind := c.Params("kind")
+	v, ok := localBlobs.Load(id)
+	if !ok {
+		return c.Status(404).SendString("expired")
+	}
+	b := v.(jobBlobs)
+	st, _, _ := getJobStatus(c.Context(), id)
+	switch kind {
+	case "zip":
+		c.Set("Content-Type", "application/zip")
+		c.Set("Content-Disposition", `attachment; filename="`+orName(st.ZipName, "panel-case.zip")+`"`)
+		return c.Send(b.zip)
+	case "3mf":
+		c.Set("Content-Type", "model/3mf")
+		c.Set("Content-Disposition", `attachment; filename="`+orName(st.ThreeMFName, "panel-case.3mf")+`"`)
+		return c.Send(b.three)
+	default:
+		return c.SendStatus(404)
+	}
+}
+
+func orName(s, fallback string) string {
+	if s == "" {
+		return fallback
+	}
+	return s
+}
+
 func handleGenerate(c *fiber.Ctx) error {
 	var l Layout
 	if err := c.BodyParser(&l); err != nil {

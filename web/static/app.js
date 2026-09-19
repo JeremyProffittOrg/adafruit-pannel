@@ -1107,72 +1107,74 @@ $("preset-tilt").addEventListener("click", () => {
   syncSize();
   renderHangs();
 });
-$("go").addEventListener("click", async () => {
-  const btn = $("go");
-  btn.disabled = true;
-  $("status").textContent = "Building zip…";
+function setBuildBusy(on) {
+  if ($("go")) $("go").disabled = on;
+  if ($("bambu")) $("bambu").disabled = on;
+}
+
+function openJobFile(url, name) {
+  const a = document.createElement("a");
+  a.href = url;
+  if (name) a.download = name;
+  a.rel = "noopener";
+  a.click();
+}
+
+function openBambu(threemfURL) {
+  openJobFile(threemfURL, "panel-case.3mf");
+  const ua = navigator.userAgent || "";
+  const mac = /Mac|iPhone|iPad/i.test(ua);
+  const href = mac
+    ? "bambustudioopen://" + threemfURL
+    : "bambustudio://open?file=" + encodeURIComponent(threemfURL);
+  window.location.href = href;
+}
+
+async function pollRenderJob(jobId, want) {
+  const deadline = Date.now() + 15 * 60 * 1000;
+  while (Date.now() < deadline) {
+    const res = await fetch("/api/render/" + encodeURIComponent(jobId));
+    const st = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(st.error || res.status);
+    if (st.state === "error") throw new Error(st.error || "render failed");
+    if (st.state === "ready") {
+      if (want === "bambu") {
+        openBambu(st.threemf_url);
+        $("status").textContent = "Opening case.3mf in Bambu Studio. Tray and lid are on one plate.";
+        return;
+      }
+      openJobFile(st.zip_url, st.zip_name || "panel-case.zip");
+      $("status").textContent = "Zip ready on S3 (STL, case.3mf, OpenSCAD). Print the lid face-down.";
+      return;
+    }
+    $("status").textContent = st.state === "running" ? "Rendering tray and lid…" : "Queued…";
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  throw new Error("render timed out");
+}
+
+async function startBuild(want) {
+  setBuildBusy(true);
+  $("status").textContent = want === "bambu" ? "Starting Bambu project…" : "Starting zip…";
   try {
     const payload = { ...layout, title: $("casetitle")?.value || "" };
-    const res = await fetch("/api/generate", {
+    const res = await fetch("/api/render", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      $("status").textContent = await res.text();
-      return;
-    }
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    const dispo = res.headers.get("Content-Disposition") || "";
-    const m = /filename="([^"]+)"/.exec(dispo);
-    a.download = m ? m[1] : "panel-case.zip";
-    a.click();
-    $("status").textContent = `zip ${blob.size} bytes. BOM, OpenSCAD, and case.3mf (when STL rendered) are inside. Print the lid face-down.`;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || res.status);
+    await pollRenderJob(data.job_id, want);
   } catch (e) {
-    $("status").textContent = String(e);
+    $("status").textContent = String(e.message || e);
   } finally {
-    btn.disabled = false;
+    setBuildBusy(false);
   }
-});
-$("bambu")?.addEventListener("click", async () => {
-  const btn = $("bambu");
-  btn.disabled = true;
-  $("status").textContent = "Building Bambu Studio project…";
-  try {
-    const payload = { ...layout, title: $("casetitle")?.value || "" };
-    const res = await fetch("/api/bambu-open", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const text = await res.text();
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
-    if (!res.ok) {
-      $("status").textContent = (data && data.error) || text || res.status;
-      return;
-    }
-    if (data && data.url) {
-      const a = document.createElement("a");
-      a.href = data.url;
-      a.download = data.name || "panel-case.3mf";
-      a.click();
-    }
-    const ua = navigator.userAgent || "";
-    const mac = /Mac|iPhone|iPad/i.test(ua);
-    const href = mac ? data.open_macos : data.open_windows;
-    if (href) {
-      window.location.href = href;
-    }
-    $("status").textContent = "Opened Bambu Studio (or downloaded case.3mf). Tray and lid are on one plate.";
-  } catch (e) {
-    $("status").textContent = String(e);
-  } finally {
-    btn.disabled = false;
-  }
-});
+}
+
+$("go").addEventListener("click", () => startBuild("zip"));
+$("bambu")?.addEventListener("click", () => startBuild("bambu"));
 
 let signedIn = false;
 let currentCaseId = "";

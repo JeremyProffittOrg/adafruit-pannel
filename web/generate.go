@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -301,10 +303,7 @@ func renderCaseSTLs(l Layout) (bottom, top []byte, err error) {
 	}
 	bottomPath := filepath.Join(genDir, "bottom.stl")
 	topPath := filepath.Join(genDir, "top.stl")
-	if err := renderPart(exe, bottomSCAD, bottomPath, "bottom"); err != nil {
-		return nil, nil, err
-	}
-	if err := renderPart(exe, topSCAD, topPath, "top"); err != nil {
+	if err := renderSTLsWithExe(exe, bottomSCAD, topSCAD, bottomPath, topPath); err != nil {
 		return nil, nil, err
 	}
 	bottom, err = os.ReadFile(bottomPath)
@@ -325,6 +324,8 @@ func openscadPath() string {
 	candidates := []string{
 		`C:\Users\Jeremy\tools\openscad-nightly\openscad.exe`,
 		`C:\Program Files\OpenSCAD\openscad.exe`,
+		"/usr/bin/openscad-nightly",
+		"/usr/bin/openscad",
 		"/opt/openscad/openscad",
 		"/var/task/openscad/openscad",
 		"openscad",
@@ -338,16 +339,41 @@ func openscadPath() string {
 }
 
 func renderPart(exe, layout, out, part string) error {
-	cmd := exec.Command(exe,
-		"-o", out,
-		"--export-format=binstl",
-		layout,
-	)
-	outb, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("openscad %s: %w\n%s", part, err, outb)
+	try := func(extra []string) error {
+		args := append(append([]string{}, extra...), "-o", out, "--export-format=binstl", layout)
+		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, exe, args...)
+		cmd.Env = append(os.Environ(), "HOME="+os.TempDir(), "LIBGL_ALWAYS_SOFTWARE=1")
+		outb, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("openscad %s: %w\n%s", part, err, outb)
+		}
+		return nil
+	}
+	if err := try([]string{"--backend=Manifold"}); err != nil {
+		return try(nil)
 	}
 	return nil
+}
+
+func renderSTLsWithExe(exe, bottomSCAD, topSCAD, bottomPath, topPath string) error {
+	var wg sync.WaitGroup
+	var bErr, tErr error
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		bErr = renderPart(exe, bottomSCAD, bottomPath, "bottom")
+	}()
+	go func() {
+		defer wg.Done()
+		tErr = renderPart(exe, topSCAD, topPath, "top")
+	}()
+	wg.Wait()
+	if bErr != nil {
+		return bErr
+	}
+	return tErr
 }
 
 func tiltCount(l Layout) int {
@@ -605,10 +631,7 @@ func buildZipBytes(l Layout) ([]byte, error) {
 	if ok {
 		bottom := filepath.Join(genDir, "bottom.stl")
 		top := filepath.Join(genDir, "top.stl")
-		if err := renderPart(exe, bottomSCAD, bottom, "bottom"); err != nil {
-			return nil, err
-		}
-		if err := renderPart(exe, topSCAD, top, "top"); err != nil {
+		if err := renderSTLsWithExe(exe, bottomSCAD, topSCAD, bottom, top); err != nil {
 			return nil, err
 		}
 		if err := addFile("bottom.stl", bottom); err != nil {

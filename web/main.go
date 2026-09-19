@@ -73,6 +73,9 @@ func newApp() *fiber.App {
 	app.Get("/api/me", handleMe)
 	app.Get("/api/devices", handleDevices)
 	app.Post("/api/generate", handleGenerate)
+	app.Post("/api/render", handleRenderStart)
+	app.Get("/api/render/:id", handleRenderStatus)
+	app.Get("/api/render/:id/:kind", handleRenderFile)
 	app.Post("/api/bambu-open", handleBambuOpen)
 	app.Get("/api/bambu/:id", handleBambuGet)
 	app.Post("/api/bom", handleBOM)
@@ -100,6 +103,10 @@ func lambdaHandler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (eve
 }
 
 func main() {
+	if os.Getenv("PANEL_ROLE") == "render" {
+		lambda.Start(handleRenderEventWithTimeout)
+		return
+	}
 	root := repoRoot()
 	if err := os.Chdir(root); err != nil {
 		log.Fatal(err)

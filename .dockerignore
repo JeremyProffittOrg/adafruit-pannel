@@ -1,0 +1,16 @@
+.git
+.github
+.playwright-mcp
+bin
+docs
+data
+print-kits
+cad/generated
+cad/out
+cad/stl
+cad/presets
+*.mp4
+*.3mf
+*.stl
+*.exe
+*.exe~

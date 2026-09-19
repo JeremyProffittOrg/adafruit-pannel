@@ -25,16 +25,19 @@ Parameters:
 
 Globals:
   Function:
-    Timeout: 60
-    MemorySize: 1024
     Architectures: [arm64]
-    Runtime: provided.al2023
 
 Resources:
   WebLogs:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /aws/lambda/adafruit-pannel-web
+      RetentionInDays: 7
+
+  RenderLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/adafruit-pannel-render
       RetentionInDays: 7
 
   Table:
@@ -66,6 +69,38 @@ Resources:
         Route53:
           HostedZoneId: !Ref HostedZoneId
 
+  RenderFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: RenderLogs
+    Metadata:
+      DockerTag: panel-render
+      DockerContext: .
+      Dockerfile: Dockerfile
+    Properties:
+      PackageType: Image
+      FunctionName: adafruit-pannel-render
+      Description: OpenSCAD tray+lid render (direct invoke, not API Gateway)
+      MemorySize: 3538
+      Timeout: 900
+      EphemeralStorage:
+        Size: 2048
+      Architectures: [arm64]
+      LoggingConfig:
+        LogGroup: /aws/lambda/adafruit-pannel-render
+      Environment:
+        Variables:
+          PANEL_ROLE: render
+          BAMBU_S3_BUCKET: perq-export-public-759775734231
+          JOBS_S3_PREFIX: dl/adafruit-pannel/bambu/jobs
+          OPENSCAD: /usr/bin/openscad
+          HOME: /tmp
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: arn:aws:s3:::perq-export-public-759775734231/dl/adafruit-pannel/bambu/jobs/*
+
   WebFunction:
     Type: AWS::Serverless::Function
     DependsOn: WebLogs
@@ -74,6 +109,9 @@ Resources:
     Properties:
       FunctionName: adafruit-pannel-web
       Handler: bootstrap
+      Runtime: provided.al2023
+      Timeout: 60
+      MemorySize: 1024
       CodeUri: .
       Description: Panel case builder (Fiber)
       Environment:
@@ -82,6 +120,8 @@ Resources:
           PUBLIC_BASE: !Sub https://${DomainName}
           BAMBU_S3_BUCKET: perq-export-public-759775734231
           BAMBU_S3_PREFIX: dl/adafruit-pannel/bambu
+          JOBS_S3_PREFIX: dl/adafruit-pannel/bambu/jobs
+          RENDER_FUNCTION_NAME: adafruit-pannel-render
           LWA_CLIENT_ID: !Ref LwaClientId
           LWA_CLIENT_SECRET: !Ref LwaClientSecret
           SESSION_SECRET: !Ref SessionSecret
@@ -103,7 +143,14 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: arn:aws:s3:::perq-export-public-759775734231/dl/adafruit-pannel/bambu/*
+                - s3:GetObject
+              Resource:
+                - arn:aws:s3:::perq-export-public-759775734231/dl/adafruit-pannel/bambu/*
+                - arn:aws:s3:::perq-export-public-759775734231/dl/adafruit-pannel/bambu/jobs/*
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !GetAtt RenderFunction.Arn
       Events:
         Root:
           Type: HttpApi
