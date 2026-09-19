@@ -32,10 +32,10 @@ def main():
     if start != -1 and end != -1:
         html = html[:start] + html[end:]
     sha = git(["rev-parse", "HEAD"])
+    local = ROOT / "docs" / "modular-promo-v2.mp4"
     evidence = (
         f"{URL}\n"
-        f"HEAD 200  Content-Type video/mp4  Content-Length 2986148\n"
-        f"local  docs/modular-promo-v2.mp4  854x480  24 fps  60.000 s\n"
+        f"local  {local}  {local.stat().st_size} bytes  854x480  24 fps  60 s\n"
         f"s3://perq-export-public-759775734231/dl/adafruit-pannel/modular-promo-v2.mp4"
     )
     repl = {
@@ -58,7 +58,7 @@ def main():
     msg["From"] = FROM_ADDR
     msg["To"] = TO_ADDR
     msg["Reply-To"] = TO_ADDR
-    msg["Subject"] = "adafruit-pannel run status #5 — promo v2 S3 link"
+    msg["Subject"] = "adafruit-pannel run status #8 — rebuilt promo v2 S3 link"
     msg["Date"] = email.utils.format_datetime(dt.datetime.now().astimezone())
     msg["Message-ID"] = email.utils.make_msgid(idstring="adafruit-pannel-v2-s3", domain="jeremy.ninja")
     msg.set_content(f"Promo v2: {URL}", charset="utf-8")

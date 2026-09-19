@@ -27,8 +27,10 @@ PARTS = [
      "Bottom tray  5 x 4 cells  25 mm inside  M3 from below"),
     ("top", ROOT / "print-kits" / "sliders-quads-case" / "top.stl", COLORS["faceplate"],
      "Top lid  print this way (visible face on the bed, bosses up)"),
-    ("tilt_bottom", ROOT / "cad" / "out" / "tilt-demo-bottom.stl", COLORS["join"],
+    ("tilt_bottom", ROOT / "print-kits" / "sliders-quads-case" / "tilt-bottom.stl", COLORS["join"],
      "Tilt demo tray  4 x 6  rows 0,0,0,+30,+30,-30"),
+    ("tilt_top", ROOT / "print-kits" / "sliders-quads-case" / "tilt-top.stl", COLORS["adapter"],
+     "Tilt demo lid  same slope, posts on the back of the lid in the rim"),
 ]
 
 
@@ -97,7 +99,7 @@ def fit_test(rnd):
         ["Fit test  lid flipped off the bed, posts down", "Two side walls only. Front and back stay open."],
         footer="Print the lid upside down, flip it over, drop into the left and right walls",
     )
-    path = VIEWS / "fit_test.png"
+    path = VIEWS / "assembly_fit.png"
     img.save(path, "PNG", optimize=True)
     return path
 
@@ -170,7 +172,12 @@ def main():
         ss["Body"],
     ))
     story.append(img_flow(fit, usable_w, 4.4 * inch))
-    labels = {"bottom": "Bottom tray", "top": "Top lid (print orientation)", "tilt_bottom": "Tilted tray demo"}
+    labels = {
+        "bottom": "Bottom tray",
+        "top": "Top lid (print orientation)",
+        "tilt_bottom": "Tilted tray demo",
+        "tilt_top": "Tilted lid demo",
+    }
     for name, _, _, _ in PARTS:
         story.append(PageBreak())
         story.append(P(labels[name], ss["H"]))

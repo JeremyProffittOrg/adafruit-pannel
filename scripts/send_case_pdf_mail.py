@@ -98,7 +98,7 @@ def main():
             f"top.stl     143.0 x 117.6 x 28.0 mm  (already flipped, posts on back of lid)\n"
             f"3mf         print-kits/sliders-quads-case/sliders-quads-case.3mf"
         ),
-        "{{ITEM}}": "Second mail: application shortcuts.",
+        "{{ITEM}}": "Video mail: S3 link to promo v2.",
         "{{WHAT_I_SAID_THEN_WHAT_IS_TRUE_AND_HOW_IT_WAS_CAUGHT}}": (
             "The earlier stl-kit.pdf showed the old strip / adapter / join-bar stack. "
             "That stack is retired. This PDF is the two-piece tray + lid."
@@ -115,7 +115,7 @@ def main():
     msg["From"] = FROM_ADDR
     msg["To"] = TO_ADDR
     msg["Reply-To"] = TO_ADDR
-    msg["Subject"] = "adafruit-pannel run status #6 — case parts PDF, posts in the rim"
+    msg["Subject"] = "adafruit-pannel run status #7 — rebuilt case parts PDF"
     msg["Date"] = email.utils.format_datetime(dt.datetime.now().astimezone())
     msg["Message-ID"] = email.utils.make_msgid(idstring="adafruit-pannel-case-pdf", domain="jeremy.ninja")
     msg.set_content("Two-piece case parts PDF is attached.", charset="utf-8")
