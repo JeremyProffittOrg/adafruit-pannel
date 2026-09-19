@@ -1547,7 +1547,7 @@ $("addnote")?.addEventListener("click", async () => {
   }
 });
 
-const TAB_NAMES = ["library", "case", "device"];
+const TAB_NAMES = ["library", "case", "device", "bom"];
 function setTab(name) {
   if (name === "parts") name = "device";
   if (name === "view" || !TAB_NAMES.includes(name)) name = "case";

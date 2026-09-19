@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=25">
+  <link rel="stylesheet" href="/style.css?v=26">
   <script type="importmap">
   {
     "imports": {
@@ -23,19 +23,25 @@
         <button type="button" id="brandbtn" aria-expanded="false" aria-describedby="brand-tip">Panel case builder</button>
         <span class="tip" id="brand-tip" role="tooltip">1.00 in grid. Closed four-wall tray, shoebox lid. Boards screw to the lid. Sign in with Amazon to keep projects.</span>
       </h1>
+      <div class="build-bar">
+        <button type="button" id="go" class="primary">Download</button>
+        <button type="button" id="bambu">Open in Bambu Studio</button>
+      </div>
       <div class="who">
         <span id="wholabel">not signed in</span>
         <a id="loginbtn" href="/login">Sign in with Amazon</a>
         <a id="logoutbtn" href="/logout" hidden>Sign out</a>
       </div>
     </div>
+    <p id="status" role="status" aria-live="polite"></p>
   </header>
   <main>
     <aside class="side" id="side">
-      <nav class="side-tabs" id="side-tabs" role="tablist" aria-label="Library, case, and device">
+      <nav class="side-tabs" id="side-tabs" role="tablist" aria-label="Library, case, device, and bill of materials">
         <button type="button" role="tab" id="tab-library" data-tab="library" aria-controls="library" aria-selected="false">Library</button>
         <button type="button" role="tab" id="tab-case" data-tab="case" aria-controls="pane-case" aria-selected="true" class="on">Case</button>
         <button type="button" role="tab" id="tab-device" data-tab="device" aria-controls="pane-parts" aria-selected="false">Device</button>
+        <button type="button" role="tab" id="tab-bom" data-tab="bom" aria-controls="pane-bom" aria-selected="false">BOM</button>
       </nav>
     <section class="col side-pane" id="library" role="tabpanel" aria-labelledby="tab-library">
       <h2>Library</h2>
@@ -174,17 +180,11 @@
         <button type="button" id="preset-sq">3 sliders + 2 rotaries</button>
         <button type="button" id="preset-tilt">Folded lid sample</button>
       </div>
-      <div class="block" data-block="bom">
-        <h2>Parts</h2>
-        <table id="bom"><tbody></tbody></table>
-      </div>
-      <div class="block" data-block="build">
-        <h2>Build</h2>
-        <p class="legend">Zip has BOM, OpenSCAD, and case.3mf when render works.</p>
-        <button type="button" id="go" class="primary">Download zip</button>
-        <button type="button" id="bambu">Open in Bambu Studio</button>
-        <p id="status" role="status" aria-live="polite"></p>
-      </div>
+    </section>
+    <section class="col side-pane" id="pane-bom" role="tabpanel" aria-labelledby="tab-bom">
+      <h2>Bill of materials</h2>
+      <p class="legend">Counts for this case. Print the lid face-down.</p>
+      <table id="bom"><tbody></tbody></table>
     </section>
     <section class="col side-pane" id="pane-parts" role="tabpanel" aria-labelledby="tab-device">
       <h2>Device</h2>
@@ -250,7 +250,7 @@
     <a href="/privacy.html">Privacy</a>
     <span>M3 from below into lid pegs. Lid prints face-down.</span>
   </footer>
-  <script src="/app.js?v=25"></script>
-  <script type="module" src="/preview.js?v=25"></script>
+  <script src="/app.js?v=26"></script>
+  <script type="module" src="/preview.js?v=26"></script>
 </body>
 </html>
