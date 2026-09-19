@@ -45,12 +45,10 @@ func newApp() *fiber.App {
 		c.Set("Referrer-Policy", "no-referrer")
 		c.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'")
 		p := c.Path()
-		if p == "/" || strings.HasSuffix(p, ".html") {
-			c.Set("Cache-Control", "no-store")
-		} else if strings.HasPrefix(p, "/api/") {
+		if strings.HasPrefix(p, "/api/") || p == "/" || strings.HasSuffix(p, ".html") || strings.HasSuffix(p, ".js") || strings.HasSuffix(p, ".css") {
 			c.Set("Cache-Control", "no-store")
 		} else {
-			c.Set("Cache-Control", "public, max-age=300")
+			c.Set("Cache-Control", "public, max-age=86400")
 		}
 		return c.Next()
 	})
