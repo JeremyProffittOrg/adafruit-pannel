@@ -17,19 +17,30 @@ main { display:flex; gap:12px; padding:12px; align-items:flex-start; flex-wrap:w
 body.signed-in #library { display:block; }
 h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin:12px 0 8px; color:var(--muted); }
 label { display:block; margin:6px 0; }
-table.fields { width:100%; border-collapse:collapse; }
+table.fields { width:100%; border-collapse:collapse; table-layout:fixed; }
 table.fields th {
   text-align:right;
   font-weight:500;
-  padding:4px 10px 4px 0;
+  padding:5px 10px 5px 0;
   white-space:nowrap;
   vertical-align:middle;
-  width:1%;
+  width:48%;
   color:var(--ink);
   background-color:#ffffff;
 }
-table.fields td { padding:3px 0; vertical-align:middle; }
+table.fields td { padding:3px 0; vertical-align:middle; width:52%; }
 table.fields th label { display:inline; margin:0; }
+table.fields th.section {
+  text-align:left;
+  width:auto;
+  padding:14px 0 6px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--muted);
+  background-color:#ffffff;
+}
 table.fields input,
 table.fields select { width:100%; max-width:none; box-sizing:border-box; }
 input, select { font:inherit; padding:4px 6px; max-width:100%; }

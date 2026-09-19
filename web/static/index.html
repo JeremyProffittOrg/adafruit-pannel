@@ -57,35 +57,39 @@
     <section class="col">
       <h2>Case</h2>
       <table class="fields">
-        <tr>
-          <th><label for="cols">Columns</label></th>
-          <td><input id="cols" type="number" min="1" max="16" value="5"></td>
-        </tr>
-        <tr>
-          <th><label for="rows">Rows</label></th>
-          <td><input id="rows" type="number" min="1" max="16" value="4"></td>
-        </tr>
-        <tr>
-          <th><label for="inner">Inside height mm</label></th>
-          <td><input id="inner" type="number" min="10" max="80" value="25"></td>
-        </tr>
-        <tr>
-          <th><label for="edge">Edge</label></th>
-          <td>
-            <select id="edge">
-              <option value="round" selected>round</option>
-              <option value="chamfer">chamfer</option>
-              <option value="square">square</option>
-            </select>
-          </td>
-        </tr>
-        <tr>
-          <th><label for="edgemm">Edge mm</label></th>
-          <td><input id="edgemm" type="number" min="0" max="8" step="0.5" value="2"></td>
-        </tr>
+        <tbody>
+          <tr>
+            <th><label for="cols">Columns</label></th>
+            <td><input id="cols" type="number" min="1" max="16" value="5"></td>
+          </tr>
+          <tr>
+            <th><label for="rows">Rows</label></th>
+            <td><input id="rows" type="number" min="1" max="16" value="4"></td>
+          </tr>
+          <tr>
+            <th><label for="inner">Inside height mm</label></th>
+            <td><input id="inner" type="number" min="10" max="80" value="25"></td>
+          </tr>
+          <tr>
+            <th><label for="edge">Edge</label></th>
+            <td>
+              <select id="edge">
+                <option value="round" selected>round</option>
+                <option value="chamfer">chamfer</option>
+                <option value="square">square</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <th><label for="edgemm">Edge mm</label></th>
+            <td><input id="edgemm" type="number" min="0" max="8" step="0.5" value="2"></td>
+          </tr>
+        </tbody>
+        <tbody>
+          <tr><th colspan="2" class="section">Row tilt (deg)</th></tr>
+        </tbody>
+        <tbody id="tilts"></tbody>
       </table>
-      <h2>Row tilt (deg)</h2>
-      <table class="fields" id="tilts"></table>
       <h2>Presets</h2>
       <button type="button" id="preset-sq">3 sliders + 2 quad rotaries</button>
       <button type="button" id="preset-tilt">3 flat, 2 at +30, 1 at -30</button>
