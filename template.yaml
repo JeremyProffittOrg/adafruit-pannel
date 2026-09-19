@@ -84,8 +84,20 @@ Resources:
           LWA_CLIENT_SECRET: !Ref LwaClientSecret
           SESSION_SECRET: !Ref SessionSecret
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref Table
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+                - dynamodb:BatchGetItem
+                - dynamodb:BatchWriteItem
+                - dynamodb:DescribeTable
+              Resource:
+                - !GetAtt Table.Arn
+                - !Sub "${Table.Arn}/index/*"
       Events:
         Root:
           Type: HttpApi

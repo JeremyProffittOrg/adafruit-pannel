@@ -17,6 +17,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+var lwaHTTP = &http.Client{Timeout: 8 * time.Second}
+
 const (
 	cookieSession = "panel_session"
 	cookieOAuth   = "panel_oauth"
@@ -118,17 +120,22 @@ func setCookie(c *fiber.Ctx, name, val string, maxAge int) {
 	c.Cookie(ck)
 }
 
-func randState() string {
+func randState() (string, error) {
 	var b [16]byte
-	_, _ = rand.Read(b[:])
-	return base64.RawURLEncoding.EncodeToString(b[:])
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b[:]), nil
 }
 
 func handleLogin(c *fiber.Ctx) error {
 	if !lwaConfigured() {
 		return c.Status(503).SendString("Login with Amazon is not configured yet (LWA_CLIENT_ID / LWA_CLIENT_SECRET / SESSION_SECRET).")
 	}
-	st := randState()
+	st, err := randState()
+	if err != nil {
+		return c.Status(500).SendString("could not start login")
+	}
 	setCookie(c, cookieOAuth, st, 600)
 	u := url.URL{
 		Scheme: "https",
@@ -170,7 +177,8 @@ func handleLWACallback(c *fiber.Ctx) error {
 		return c.Status(401).SendString("Amazon login was cancelled or refused")
 	}
 	st := c.Query("state")
-	if st == "" || st != c.Cookies(cookieOAuth) {
+	want := c.Cookies(cookieOAuth)
+	if st == "" || want == "" || !hmac.Equal([]byte(st), []byte(want)) {
 		return c.Status(400).SendString("bad OAuth state")
 	}
 	code := c.Query("code")
@@ -188,7 +196,7 @@ func handleLWACallback(c *fiber.Ctx) error {
 		return c.Status(500).SendString(err.Error())
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := lwaHTTP.Do(req)
 	if err != nil {
 		return c.Status(502).SendString("token exchange failed")
 	}
@@ -204,7 +212,7 @@ func handleLWACallback(c *fiber.Ctx) error {
 		return c.Status(500).SendString(err.Error())
 	}
 	preq.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-	presp, err := http.DefaultClient.Do(preq)
+	presp, err := lwaHTTP.Do(preq)
 	if err != nil {
 		return c.Status(502).SendString("profile failed")
 	}
@@ -214,7 +222,11 @@ func handleLWACallback(c *fiber.Ctx) error {
 	if err := json.Unmarshal(pbody, &prof); err != nil || prof.UserID == "" {
 		return c.Status(401).SendString("Amazon profile failed")
 	}
-	u := sessionUser{ID: prof.UserID, Name: prof.Name, Email: prof.Email}
+	u := sessionUser{
+		ID:    clampString(prof.UserID, 80),
+		Name:  clampString(prof.Name, 120),
+		Email: clampString(prof.Email, 200),
+	}
 	toks, err := signSession(u)
 	if err != nil {
 		return c.Status(500).SendString(err.Error())

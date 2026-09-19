@@ -2,10 +2,24 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+func apiFail(c *fiber.Ctx, err error) error {
+	log.Printf("api %s %s: %v", c.Method(), c.Path(), err)
+	return c.Status(500).JSON(fiber.Map{"error": "server error"})
+}
+
+func pathID(c *fiber.Ctx, name string) (string, error) {
+	id := c.Params(name)
+	if !validID(id) {
+		return "", c.Status(400).JSON(fiber.Map{"error": "bad id"})
+	}
+	return id, nil
+}
 
 func needStore(c *fiber.Ctx) error {
 	if store == nil {
@@ -26,7 +40,7 @@ func handleFolders(c *fiber.Ctx) error {
 	case fiber.MethodGet:
 		list, err := store.listFolders(c.Context(), u.ID)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.JSON(list)
 	case fiber.MethodPost:
@@ -34,13 +48,14 @@ func handleFolders(c *fiber.Ctx) error {
 		if err := c.BodyParser(&f); err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": "bad json"})
 		}
+		f.ID = ""
 		f.Name = clampString(f.Name, 80)
 		if f.Name == "" {
 			return c.Status(400).JSON(fiber.Map{"error": "folder needs a name"})
 		}
 		out, err := store.putFolder(c.Context(), u.ID, f)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.Status(201).JSON(out)
 	default:
@@ -56,7 +71,10 @@ func handleFolder(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": err.Error()})
 	}
-	id := c.Params("id")
+	id, err := pathID(c, "id")
+	if err != nil {
+		return err
+	}
 	switch c.Method() {
 	case fiber.MethodPut:
 		var f Folder
@@ -64,21 +82,18 @@ func handleFolder(c *fiber.Ctx) error {
 			return c.Status(400).JSON(fiber.Map{"error": "bad json"})
 		}
 		f.ID = id
-		if !validID(id) {
-			return c.Status(400).JSON(fiber.Map{"error": "bad id"})
-		}
 		f.Name = clampString(f.Name, 80)
 		if f.Name == "" {
 			return c.Status(400).JSON(fiber.Map{"error": "folder needs a name"})
 		}
 		out, err := store.putFolder(c.Context(), u.ID, f)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.JSON(out)
 	case fiber.MethodDelete:
 		if err := store.deleteFolder(c.Context(), u.ID, id); err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.SendStatus(204)
 	default:
@@ -98,11 +113,14 @@ func handleCases(c *fiber.Ctx) error {
 	case fiber.MethodGet:
 		list, err := store.listCases(c.Context(), u.ID)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		folder := c.Query("folder")
 		if folder == "" {
 			return c.JSON(list)
+		}
+		if !validID(folder) {
+			return c.Status(400).JSON(fiber.Map{"error": "bad id"})
 		}
 		filtered := make([]CaseRecord, 0)
 		for _, rec := range list {
@@ -116,12 +134,13 @@ func handleCases(c *fiber.Ctx) error {
 		if err := c.BodyParser(&rec); err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": "bad json"})
 		}
+		rec.ID = ""
 		if err := prepareCase(&rec); err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 		}
 		out, err := store.putCase(c.Context(), u.ID, rec)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.Status(201).JSON(out)
 	default:
@@ -137,12 +156,15 @@ func handleCase(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": err.Error()})
 	}
-	id := c.Params("id")
+	id, err := pathID(c, "id")
+	if err != nil {
+		return err
+	}
 	switch c.Method() {
 	case fiber.MethodGet:
 		rec, err := store.getCase(c.Context(), u.ID, id)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		if rec.ID == "" {
 			return c.Status(404).JSON(fiber.Map{"error": "not found"})
@@ -154,20 +176,17 @@ func handleCase(c *fiber.Ctx) error {
 			return c.Status(400).JSON(fiber.Map{"error": "bad json"})
 		}
 		rec.ID = id
-		if !validID(id) {
-			return c.Status(400).JSON(fiber.Map{"error": "bad id"})
-		}
 		if err := prepareCase(&rec); err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 		}
 		out, err := store.putCase(c.Context(), u.ID, rec)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.JSON(out)
 	case fiber.MethodDelete:
 		if err := store.deleteCase(c.Context(), u.ID, id); err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.SendStatus(204)
 	default:
@@ -183,12 +202,15 @@ func handleNotes(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": err.Error()})
 	}
-	caseID := c.Params("id")
+	caseID, err := pathID(c, "id")
+	if err != nil {
+		return err
+	}
 	switch c.Method() {
 	case fiber.MethodGet:
 		list, err := store.listNotes(c.Context(), u.ID, caseID)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.JSON(list)
 	case fiber.MethodPost:
@@ -196,17 +218,15 @@ func handleNotes(c *fiber.Ctx) error {
 		if err := c.BodyParser(&n); err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": "bad json"})
 		}
+		n.ID = ""
 		n.CaseID = caseID
 		n.Text = clampString(n.Text, 4000)
 		if n.Text == "" {
 			return c.Status(400).JSON(fiber.Map{"error": "note is empty"})
 		}
-		if !validID(caseID) {
-			return c.Status(400).JSON(fiber.Map{"error": "bad id"})
-		}
 		out, err := store.putNote(c.Context(), u.ID, n)
 		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+			return apiFail(c, err)
 		}
 		return c.Status(201).JSON(out)
 	default:
@@ -222,8 +242,16 @@ func handleNoteDelete(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": err.Error()})
 	}
-	if err := store.deleteNote(c.Context(), u.ID, c.Params("id"), c.Params("nid")); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	caseID, err := pathID(c, "id")
+	if err != nil {
+		return err
+	}
+	nid, err := pathID(c, "nid")
+	if err != nil {
+		return err
+	}
+	if err := store.deleteNote(c.Context(), u.ID, caseID, nid); err != nil {
+		return apiFail(c, err)
 	}
 	return c.SendStatus(204)
 }
@@ -238,7 +266,7 @@ func handleSearch(c *fiber.Ctx) error {
 	}
 	hits, err := store.search(c.Context(), u.ID, c.Query("q"))
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		return apiFail(c, err)
 	}
 	return c.JSON(hits)
 }
@@ -251,9 +279,13 @@ func handleCasesByPart(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": err.Error()})
 	}
-	list, err := store.casesByPart(c.Context(), u.ID, c.Params("part"))
+	part, err := pathID(c, "part")
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		return err
+	}
+	list, err := store.casesByPart(c.Context(), u.ID, part)
+	if err != nil {
+		return apiFail(c, err)
 	}
 	return c.JSON(list)
 }
@@ -268,7 +300,8 @@ func handleGenerate(c *fiber.Ctx) error {
 	}
 	body, err := buildZipBytes(l)
 	if err != nil {
-		return c.Status(500).SendString(err.Error())
+		log.Printf("generate: %v", err)
+		return c.Status(500).SendString("could not build zip")
 	}
 	name := zipFileName(l.Title)
 	c.Set("Content-Type", "application/zip")

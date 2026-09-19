@@ -92,16 +92,21 @@ module each_post() {
             translate([C_COLS*C_PITCH + ins, y, 0]) children();
         }
     }
-    yf = lid_wy(0, -ins);
-    yb = lid_wy(C_ROWS-1, C_PITCH + ins);
-    if (C_COLS > 1) {
-        for (c = [1:C_COLS-1]) {
-            translate([c * C_PITCH, yf, 0]) children();
-            translate([c * C_PITCH, yb, 0]) children();
+    if (abs(tilt_of(0)) < 0.05) {
+        yf = lid_wy(0, -ins);
+        if (C_COLS > 1) {
+            for (c = [1:C_COLS-1]) translate([c * C_PITCH, yf, 0]) children();
+        } else {
+            translate([C_PITCH/2, yf, 0]) children();
         }
-    } else {
-        translate([C_PITCH/2, yf, 0]) children();
-        translate([C_PITCH/2, yb, 0]) children();
+    }
+    if (abs(tilt_of(C_ROWS-1)) < 0.05) {
+        yb = lid_wy(C_ROWS-1, C_PITCH + ins);
+        if (C_COLS > 1) {
+            for (c = [1:C_COLS-1]) translate([c * C_PITCH, yb, 0]) children();
+        } else {
+            translate([C_PITCH/2, yb, 0]) children();
+        }
     }
 }
 
@@ -115,18 +120,23 @@ module each_post_lid() {
             translate([C_COLS*C_PITCH + ins, y, z]) children();
         }
     }
-    yf = lid_wy(0, -ins);
-    zf = lid_wz(0, -ins);
-    yb = lid_wy(C_ROWS-1, C_PITCH + ins);
-    zb = lid_wz(C_ROWS-1, C_PITCH + ins);
-    if (C_COLS > 1) {
-        for (c = [1:C_COLS-1]) {
-            translate([c * C_PITCH, yf, zf]) children();
-            translate([c * C_PITCH, yb, zb]) children();
+    if (abs(tilt_of(0)) < 0.05) {
+        yf = lid_wy(0, -ins);
+        zf = lid_wz(0, -ins);
+        if (C_COLS > 1) {
+            for (c = [1:C_COLS-1]) translate([c * C_PITCH, yf, zf]) children();
+        } else {
+            translate([C_PITCH/2, yf, zf]) children();
         }
-    } else {
-        translate([C_PITCH/2, yf, zf]) children();
-        translate([C_PITCH/2, yb, zb]) children();
+    }
+    if (abs(tilt_of(C_ROWS-1)) < 0.05) {
+        yb = lid_wy(C_ROWS-1, C_PITCH + ins);
+        zb = lid_wz(C_ROWS-1, C_PITCH + ins);
+        if (C_COLS > 1) {
+            for (c = [1:C_COLS-1]) translate([c * C_PITCH, yb, zb]) children();
+        } else {
+            translate([C_PITCH/2, yb, zb]) children();
+        }
     }
 }
 
@@ -235,16 +245,18 @@ module at_device(id, c, r) {
 }
 
 module wall_origin(side, pos) {
+    r = min(C_ROWS-1, max(0, floor(pos)));
+    ly = (pos - r + 0.5) * C_PITCH;
     if (side == "left")
-        translate([-C_WALL, (pos+0.5)*C_PITCH, C_BOT + C_INNER/2]) children();
+        at_row(r) translate([-C_WALL, ly, C_BOT + C_INNER/2]) children();
     else if (side == "right")
-        translate([C_COLS*C_PITCH + C_WALL, (pos+0.5)*C_PITCH, C_BOT + C_INNER/2])
+        at_row(r) translate([C_COLS*C_PITCH + C_WALL, ly, C_BOT + C_INNER/2])
             rotate([0,0,180]) children();
     else if (side == "front")
-        translate([(pos+0.5)*C_PITCH, -C_WALL, C_BOT + C_INNER/2])
+        at_row(0) translate([(pos+0.5)*C_PITCH, -C_WALL, C_BOT + C_INNER/2])
             rotate([0,0,-90]) children();
     else
-        translate([(pos+0.5)*C_PITCH, C_ROWS*C_PITCH + C_WALL, C_BOT + C_INNER/2])
+        at_row(C_ROWS-1) translate([(pos+0.5)*C_PITCH, C_PITCH + C_WALL, C_BOT + C_INNER/2])
             rotate([0,0,90]) children();
 }
 
@@ -268,16 +280,19 @@ module tray_fasteners() {
     each_post_lid() tray_socket();
 }
 
+module wall_pocket_void(side, id, pos) {
+    wall_origin(side, pos) translate([4, 0, 0]) cube([8, 22, 16], center=true);
+}
+
 module tray_wall_cuts() {
     if (C_NWALL > 0)
-        for (i = [0:C_NWALL-1])
+        for (i = [0:C_NWALL-1]) {
             wall_opening(WALL_SIDE[i], WALL_ID[i], WALL_POS[i]);
+            wall_pocket_void(WALL_SIDE[i], WALL_ID[i], WALL_POS[i]);
+        }
 }
 
 module tray_extras() {
-    if (C_NWALL > 0)
-        for (i = [0:C_NWALL-1])
-            wall_pocket(WALL_SIDE[i], WALL_ID[i], WALL_POS[i]);
     if (C_NDEV > 0)
         for (i = [0:C_NDEV-1])
             if (dev_place_is_bottom(DEV_ID[i]))
@@ -342,7 +357,10 @@ module lid_pegs() {
 }
 
 module lid_tap_holes() {
-    each_post_lid() cylinder(d=C_M3TAP, h=40, center=true);
+    // From the peg up into the plate; stop short of the outer skin.
+    each_post_lid()
+        translate([0, 0, -C_PEG_H - 0.2])
+            cylinder(d=C_M3TAP, h=C_PEG_H + C_TOP - 0.8);
 }
 
 module top_lid_flat() {
@@ -383,18 +401,27 @@ module row_lid(i) {
 module row_skirt(i) {
     // Square ring (no edge_rect): a rounded inner on a short row segment
     // leaves a 2 mm fillet that sits inside the wall and hits the tray.
+    // Tilted rows keep left/right only: a front/back skirt in local Z
+    // collides when the lid drops in world Z.
     y0 = row_y0(i) - (i==0 ? C_EX : 0);
     yl = row_ylen(i) + (i==0?C_EX:0) + (i==C_ROWS-1?C_EX:0);
     iy0 = row_y0(i) - (i==0 ? C_FIT : 0);
     iyl = row_ylen(i) + (i==0?C_FIT:0) + (i==C_ROWS-1?C_FIT:0);
     at_row(i)
         translate([0, 0, C_WALL_H - C_SKIRT_H])
-            linear_extrude(C_SKIRT_H)
-                difference() {
-                    translate([-C_WALL - C_EX, y0]) square([lid_w(), yl]);
-                    translate([-C_WALL - C_FIT, iy0])
-                        square([case_w() + 2*C_FIT, iyl]);
+            linear_extrude(C_SKIRT_H) {
+                if (abs(tilt_of(i)) < 0.05) {
+                    difference() {
+                        translate([-C_WALL - C_EX, y0]) square([lid_w(), yl]);
+                        translate([-C_WALL - C_FIT, iy0])
+                            square([case_w() + 2*C_FIT, iyl]);
+                    }
+                } else {
+                    translate([-C_WALL - C_EX, y0]) square([C_SKIRT, yl]);
+                    translate([C_COLS*C_PITCH + C_WALL + C_FIT, y0])
+                        square([C_SKIRT, yl]);
                 }
+            }
 }
 
 module lid_kink_fill() {
@@ -421,6 +448,16 @@ module lid_kink_fill() {
         }
 }
 
+module row_skirt_mouth(i) {
+    y0 = row_y0(i) - (i==0 ? C_FIT + C_MOUTH : 0);
+    yl = row_ylen(i) + (i==0?C_FIT+C_MOUTH:0) + (i==C_ROWS-1?C_FIT+C_MOUTH:0);
+    at_row(i)
+        translate([0, 0, C_WALL_H - C_SKIRT_H - 0.05])
+            linear_extrude(1.5)
+                translate([-C_WALL - C_FIT - C_MOUTH, y0])
+                    square([case_w() + 2*(C_FIT + C_MOUTH), yl]);
+}
+
 module top_lid_tilted() {
     difference() {
         union() {
@@ -432,6 +469,8 @@ module top_lid_tilted() {
             lid_pegs();
             lid_device_bosses();
         }
+        for (i = [0:C_ROWS-1])
+            if (abs(tilt_of(i)) < 0.05) row_skirt_mouth(i);
         lid_device_cuts();
         lid_tap_holes();
     }
@@ -442,9 +481,17 @@ module top_lid_use() {
     else top_lid_tilted();
 }
 
+function lid_print_z() =
+    max([for (i = [0:C_ROWS-1])
+        let (
+            y0 = row_y0(i) - (i==0 ? C_EX : 0),
+            y1 = row_y0(i) + row_ylen(i) + (i==C_ROWS-1 ? C_EX : 0)
+        ) max(lid_wz(i, y0) + C_TOP, lid_wz(i, y1) + C_TOP)
+    ]);
+
 module top_lid_print() {
     rotate([180,0,0])
-        translate([0, -case_d(), -(C_WALL_H + C_TOP)])
+        translate([0, -case_d(), -lid_print_z()])
             top_lid_use();
 }
 

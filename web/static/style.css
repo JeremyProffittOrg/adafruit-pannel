@@ -11,6 +11,7 @@
   --fr4: #0a3d32;
 }
 * { box-sizing: border-box; }
+html { color-scheme: dark; }
 html, body { min-height: 100%; }
 body {
   margin: 0;
@@ -18,11 +19,10 @@ body {
   color: var(--ink);
   background-color: var(--bg);
   background-image:
-    url("/traces.svg"),
     radial-gradient(1200px 500px at 80% -10%, rgba(34, 211, 238, 0.12), transparent 60%),
     linear-gradient(180deg, #040a10 0%, #07131c 40%, #061820 100%);
-  background-size: 160px 160px, auto, auto;
-  background-attachment: fixed;
+  background-size: auto, auto;
+  background-attachment: scroll;
 }
 .traces {
   pointer-events: none;
@@ -40,8 +40,9 @@ body {
 }
 header, main, footer { position: relative; z-index: 1; }
 header {
+  z-index: 3;
   background:
-    linear-gradient(180deg, rgba(6, 16, 24, 0.2) 0%, rgba(6, 16, 24, 0.85) 70%),
+    linear-gradient(180deg, rgba(6, 16, 24, 0.55) 0%, rgba(6, 16, 24, 0.2) 55%, transparent 100%),
     url("/city.svg") repeat-x bottom,
     #061018;
   background-size: auto, 640px 72px, auto;
@@ -52,14 +53,27 @@ header {
 }
 header h1 { margin: 0; font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase; }
 .headrow { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
-.brand { position: relative; display: inline-block; cursor: help; border-bottom: 1px dotted #22d3ee; color: #7df9ff; text-shadow: 0 0 12px rgba(34, 211, 238, 0.45); }
+.brand { position: relative; display: inline-block; color: #7df9ff; text-shadow: 0 0 12px rgba(34, 211, 238, 0.45); }
+.brand button {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dotted #22d3ee;
+  padding: 0;
+  margin: 0;
+  cursor: help;
+}
+.brand button:hover { background: transparent; }
 .brand .tip {
   display: none;
   position: absolute;
   left: 0;
   top: calc(100% + 8px);
   z-index: 20;
-  width: max(280px, min(42ch, 70vw));
+  width: min(42ch, calc(100vw - 32px));
   padding: 10px 12px;
   font-size: 13px;
   font-weight: 400;
@@ -71,7 +85,7 @@ header h1 { margin: 0; font-size: 20px; letter-spacing: 0.08em; text-transform: 
   border: 1px solid #22d3ee;
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
 }
-.brand:hover .tip, .brand:focus .tip { display: block; }
+.brand:hover .tip, .brand:focus-within .tip, .brand.open .tip { display: block; }
 .who { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; color: #9ec4d8; }
 .who a { color: #7df9ff; }
 textarea { width: 100%; font: inherit; color: var(--ink); background: #061018; border: 1px solid #1f6f7a; }
@@ -83,6 +97,7 @@ main { display: flex; gap: 12px; padding: 16px 12px 20px; align-items: flex-star
   background-image:
     linear-gradient(90deg, rgba(212, 160, 84, 0.12) 1px, transparent 1px),
     linear-gradient(rgba(34, 211, 238, 0.05), rgba(34, 211, 238, 0.05));
+  background-size: 8px 100%, auto;
   padding: 14px;
   border: 1px solid #1f6f7a;
   box-shadow: inset 0 0 0 1px rgba(212, 160, 84, 0.18), 0 0 18px rgba(34, 211, 238, 0.08);
@@ -137,6 +152,7 @@ input, select {
   border: 1px solid #d4a054;
   box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.12);
 }
+::placeholder { color: #9ec4d8; opacity: 1; }
 select#device { width: 100%; height: 240px; }
 button {
   font: inherit;
@@ -186,7 +202,7 @@ button.primary:hover { background: #22d3ee; }
 #bom td:first-child { text-align: right; width: 3rem; color: #d4a054; }
 #bom a { color: #7df9ff; }
 footer {
-  padding: 28px 16px 16px;
+  padding: 80px 16px 16px;
   color: var(--muted);
   font-size: 13px;
   display: flex;

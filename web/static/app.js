@@ -20,6 +20,34 @@ function bumpPreview() {
 
 const $ = (id) => document.getElementById(id);
 
+function numOr(v, d) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
+}
+
+function cloneLayout(src) {
+  const l = JSON.parse(JSON.stringify(src || {}));
+  if (!Array.isArray(l.devices)) l.devices = [];
+  if (!Array.isArray(l.walls)) l.walls = [];
+  if (!Array.isArray(l.tilts)) l.tilts = [];
+  l.cols = numOr(l.cols, 5);
+  l.rows = numOr(l.rows, 4);
+  l.inner_h = numOr(l.inner_h, 25);
+  l.edge_style = l.edge_style || "round";
+  l.edge_mm = numOr(l.edge_mm, 2);
+  return l;
+}
+
+function clipDevices() {
+  layout.devices = layout.devices.filter((d) => {
+    const def = byId[d.id];
+    if (!def) return false;
+    const dx = def.cells_x || 1;
+    const dy = def.cells_y || 1;
+    return d.c >= 0 && d.r >= 0 && d.c + dx <= layout.cols && d.r + dy <= layout.rows;
+  });
+}
+
 function occMap() {
   const m = {};
   for (const d of layout.devices) {
@@ -55,6 +83,7 @@ function renderTilts() {
     inp.addEventListener("input", () => {
       layout.tilts[i] = Number(inp.value) || 0;
       bumpPreview();
+      renderBOM();
     });
     td.appendChild(inp);
     tr.appendChild(th);
@@ -125,28 +154,32 @@ function fillDevices() {
   const sel = $("device");
   const wsel = $("wall-dev");
   const q = ($("devfilter")?.value || "").toLowerCase();
+  const keepDev = sel.value;
+  const keepWall = wsel.value;
   sel.innerHTML = "";
   wsel.innerHTML = "";
   const rest = [];
   let emptyOpt = null;
   for (const d of LIB.devices) {
     byId[d.id] = d;
-    const label = `${d.category}: ${d.name}`;
-    if (q && !label.toLowerCase().includes(q) && d.id !== "empty") continue;
-    const opt = document.createElement("option");
-    opt.value = d.id;
-    opt.textContent = d.id === "empty" ? "eraser — click a cell to clear" : label;
-    if (d.id === "empty") emptyOpt = opt;
-    else rest.push(opt);
     if (d.place === "wall") {
       const w = document.createElement("option");
       w.value = d.id;
       w.textContent = d.name;
       wsel.appendChild(w);
     }
+    const hay = `${d.category} ${d.name} ${d.brand || ""} ${d.id}`.toLowerCase();
+    if (q && d.id !== "empty" && !hay.includes(q)) continue;
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = d.id === "empty" ? "eraser — click a cell to clear" : `${d.category}: ${d.name}`;
+    if (d.id === "empty") emptyOpt = opt;
+    else rest.push(opt);
   }
   for (const o of rest) sel.appendChild(o);
   if (emptyOpt) sel.appendChild(emptyOpt);
+  if (keepDev && [...sel.options].some((o) => o.value === keepDev)) sel.value = keepDev;
+  if (keepWall && [...wsel.options].some((o) => o.value === keepWall)) wsel.value = keepWall;
   if (!sel.dataset.bound) {
     sel.dataset.bound = "1";
     sel.addEventListener("change", () => {
@@ -195,15 +228,26 @@ function renderWalls() {
 }
 
 function syncSize() {
-  layout.cols = Number($("cols").value) || 1;
-  layout.rows = Number($("rows").value) || 1;
-  layout.inner_h = Number($("inner").value) || 25;
+  layout.cols = numOr($("cols").value, 1);
+  layout.rows = numOr($("rows").value, 1);
+  layout.inner_h = numOr($("inner").value, 25);
   layout.edge_style = $("edge")?.value || "round";
-  layout.edge_mm = Number($("edgemm")?.value) || 2;
+  layout.edge_mm = numOr($("edgemm")?.value, 2);
+  clipDevices();
   renderTilts();
   renderGrid();
   bumpPreview();
   renderBOM();
+}
+
+function setEdgeInputs(style, mm) {
+  if ($("edge")) $("edge").value = style || "round";
+  if ($("edgemm")) $("edgemm").value = numOr(mm, 2);
+}
+
+function clearNotes() {
+  if ($("notelist")) $("notelist").innerHTML = "";
+  if ($("notetext")) $("notetext").value = "";
 }
 
 $("cols").addEventListener("input", syncSize);
@@ -222,10 +266,13 @@ $("add-wall").addEventListener("click", () => {
 });
 $("preset-sq").addEventListener("click", () => {
   currentCaseId = "";
+  saveFolderId = $("folder")?.value || "";
   if ($("casetitle")) $("casetitle").value = "3 sliders + 2 quad rotaries";
   $("cols").value = 5;
   $("rows").value = 4;
   $("inner").value = 25;
+  setEdgeInputs("round", 2);
+  clearNotes();
   layout = {
     cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, tilts: [0, 0, 0, 0], walls: [],
     devices: [
@@ -240,10 +287,13 @@ $("preset-sq").addEventListener("click", () => {
 });
 $("preset-tilt").addEventListener("click", () => {
   currentCaseId = "";
+  saveFolderId = $("folder")?.value || "";
   if ($("casetitle")) $("casetitle").value = "tilt demo";
   $("cols").value = 4;
   $("rows").value = 6;
   $("inner").value = 25;
+  setEdgeInputs("round", 2);
+  clearNotes();
   layout = {
     cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2,
     tilts: [0, 0, 0, 30, 30, -30],
@@ -284,6 +334,15 @@ $("go").addEventListener("click", async () => {
 
 let signedIn = false;
 let currentCaseId = "";
+let saveFolderId = "";
+let persistBusy = false;
+
+function screwLabel(d) {
+  if (!(d > 0)) return "";
+  if (d < 2.35) return "M2x6 screw into PCB";
+  if (d < 2.75) return "M2.5x6 screw into PCB";
+  return "M3x6 screw into PCB";
+}
 
 function renderBOM() {
   const tb = document.querySelector("#bom tbody");
@@ -292,17 +351,27 @@ function renderBOM() {
   const lines = [];
   lines.push({ qty: 1, item: "Bottom tray (printed)", url: "" });
   lines.push({ qty: 1, item: "Lid (printed, face on bed)", url: "" });
-  let m25 = 0;
-  for (const d of layout.devices) m25 += (byId[d.id]?.holes || []).length;
-  for (const w of layout.walls) m25 += (byId[w.id]?.holes || []).length;
+  const screws = {};
+  for (const d of layout.devices) {
+    const def = byId[d.id];
+    if (!def || !(def.holes || []).length) continue;
+    const lab = screwLabel(def.hole_d);
+    if (!lab) continue;
+    screws[lab] = (screws[lab] || 0) + def.holes.length;
+  }
   let posts = 0;
   for (let r = 0; r < layout.rows; r++) {
     const t = (layout.tilts && layout.tilts[r]) || 0;
     if (Math.abs(t) < 0.05) posts += 2;
   }
-  posts += layout.cols > 1 ? 2 * (layout.cols - 1) : 2;
+  const firstTilt = Math.abs((layout.tilts && layout.tilts[0]) || 0) < 0.05;
+  const lastTilt = Math.abs((layout.tilts && layout.tilts[layout.rows - 1]) || 0) < 0.05;
+  if (firstTilt && lastTilt) posts += layout.cols > 1 ? 2 * (layout.cols - 1) : 2;
+  else if (firstTilt || lastTilt) posts += layout.cols > 1 ? (layout.cols - 1) : 1;
   if (posts) lines.push({ qty: posts, item: "M3 screw from below (tray into lid peg)", url: "" });
-  if (m25) lines.push({ qty: m25, item: "M2.5x6 screw into PCB", url: "" });
+  for (const lab of Object.keys(screws).sort()) {
+    lines.push({ qty: screws[lab], item: lab, url: "" });
+  }
   const qty = {};
   const add = (id) => {
     if (!id || id === "empty") return;
@@ -345,17 +414,31 @@ async function api(path, opt) {
 
 function applyCase(rec) {
   currentCaseId = rec.id;
+  saveFolderId = rec.folder_id || "";
   $("casetitle").value = rec.title || "";
-  if ($("folder") && rec.folder_id) $("folder").value = rec.folder_id;
-  layout = rec.layout;
+  if ($("folder")) $("folder").value = rec.folder_id || "";
+  layout = cloneLayout(rec.layout);
   $("cols").value = layout.cols;
   $("rows").value = layout.rows;
   $("inner").value = layout.inner_h;
-  if ($("edge")) $("edge").value = layout.edge_style || "round";
-  if ($("edgemm")) $("edgemm").value = layout.edge_mm || 2;
+  setEdgeInputs(layout.edge_style, layout.edge_mm);
   syncSize();
   renderWalls();
-  loadNotes();
+  loadNotes().catch((e) => { $("status").textContent = String(e); });
+}
+
+function resetOpenCase() {
+  currentCaseId = "";
+  saveFolderId = $("folder")?.value || "";
+  $("casetitle").value = "";
+  clearNotes();
+  $("cols").value = 5;
+  $("rows").value = 4;
+  $("inner").value = 25;
+  setEdgeInputs("round", 2);
+  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, tilts: [0, 0, 0, 0], devices: [], walls: [] };
+  syncSize();
+  renderWalls();
 }
 
 async function refreshFolders() {
@@ -389,7 +472,10 @@ async function refreshCases() {
       if (!confirm(`Delete case “${rec.title}”?`)) return;
       try {
         await api(`/api/cases/${rec.id}`, { method: "DELETE" });
-        if (currentCaseId === rec.id) currentCaseId = "";
+        if (currentCaseId === rec.id) {
+          resetOpenCase();
+          $("status").textContent = "case deleted";
+        }
         await refreshCases();
       } catch (e) {
         $("status").textContent = String(e);
@@ -404,18 +490,27 @@ async function loadNotes() {
   const ul = $("notelist");
   ul.innerHTML = "";
   if (!currentCaseId) return;
-  const list = await api(`/api/cases/${currentCaseId}/notes`);
-  for (const n of list) {
-    const li = document.createElement("li");
-    li.textContent = n.text;
-    const rm = document.createElement("button");
-    rm.textContent = "delete";
-    rm.onclick = async () => {
-      await api(`/api/cases/${currentCaseId}/notes/${n.id}`, { method: "DELETE" });
-      await loadNotes();
-    };
-    li.appendChild(rm);
-    ul.appendChild(li);
+  try {
+    const list = await api(`/api/cases/${currentCaseId}/notes`);
+    for (const n of list) {
+      const li = document.createElement("li");
+      li.textContent = n.text;
+      const rm = document.createElement("button");
+      rm.textContent = "delete";
+      rm.onclick = async () => {
+        if (!confirm("Delete this note?")) return;
+        try {
+          await api(`/api/cases/${currentCaseId}/notes/${n.id}`, { method: "DELETE" });
+          await loadNotes();
+        } catch (e) {
+          $("status").textContent = String(e);
+        }
+      };
+      li.appendChild(rm);
+      ul.appendChild(li);
+    }
+  } catch (e) {
+    $("status").textContent = String(e);
   }
 }
 
@@ -439,8 +534,9 @@ async function loadPartCases(part) {
       li.textContent = "none saved yet";
       ul.appendChild(li);
     }
-  } catch {
-    /* not signed in */
+  } catch (e) {
+    const msg = String(e);
+    if (!/sign in/i.test(msg) && !/401/.test(msg)) $("status").textContent = msg;
   }
 }
 
@@ -455,8 +551,11 @@ async function bootLibrary() {
   $("libbody").hidden = !signedIn;
   if ($("partcases-hint")) $("partcases-hint").hidden = signedIn;
   if (!signedIn) return;
+  saveFolderId = $("folder")?.value || "";
   await refreshFolders();
   await refreshCases();
+  const dev = $("device")?.value;
+  if (dev) await loadPartCases(dev);
 }
 
 $("dosearch")?.addEventListener("click", async () => {
@@ -512,47 +611,55 @@ $("delfolder")?.addEventListener("click", async () => {
   if (!confirm(`Delete folder “${name}”? Cases move to no folder.`)) return;
   try {
     await api(`/api/folders/${id}`, { method: "DELETE" });
+    if (saveFolderId === id) saveFolderId = "";
     await refreshFolders();
     await refreshCases();
   } catch (e) {
     $("status").textContent = String(e);
   }
 });
-$("folder")?.addEventListener("change", () => refreshCases());
+$("folder")?.addEventListener("change", () => {
+  refreshCases().catch((e) => { $("status").textContent = String(e); });
+});
 async function persistCase(asCopy) {
-  const rec = {
-    id: asCopy ? undefined : (currentCaseId || undefined),
-    title: $("casetitle").value.trim() || "Untitled case",
-    folder_id: $("folder").value,
-    layout,
-  };
-  const updating = !asCopy && currentCaseId;
-  const out = await api(updating ? `/api/cases/${currentCaseId}` : "/api/cases", {
-    method: updating ? "PUT" : "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(rec),
-  });
-  currentCaseId = out.id;
-  $("status").textContent = `saved ${out.title}`;
-  await refreshCases();
-  await loadNotes();
+  if (persistBusy) return;
+  persistBusy = true;
+  $("savecase") && ($("savecase").disabled = true);
+  $("saveas") && ($("saveas").disabled = true);
+  try {
+    const rec = {
+      id: asCopy ? undefined : (currentCaseId || undefined),
+      title: $("casetitle").value.trim() || "Untitled case",
+      folder_id: saveFolderId,
+      layout,
+    };
+    const updating = !asCopy && currentCaseId;
+    const out = await api(updating ? `/api/cases/${currentCaseId}` : "/api/cases", {
+      method: updating ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rec),
+    });
+    currentCaseId = out.id;
+    saveFolderId = out.folder_id || "";
+    $("status").textContent = `saved ${out.title}`;
+    await refreshCases();
+    await loadNotes();
+  } finally {
+    persistBusy = false;
+    $("savecase") && ($("savecase").disabled = false);
+    $("saveas") && ($("saveas").disabled = false);
+  }
 }
 $("savecase")?.addEventListener("click", async () => {
   try { await persistCase(false); } catch (e) { $("status").textContent = String(e); }
 });
 $("saveas")?.addEventListener("click", async () => {
+  const t = $("casetitle").value.trim() || "Untitled case";
+  if (!/ copy$/i.test(t)) $("casetitle").value = `${t} copy`;
   try { await persistCase(true); } catch (e) { $("status").textContent = String(e); }
 });
 $("newcase")?.addEventListener("click", () => {
-  currentCaseId = "";
-  $("casetitle").value = "";
-  $("notelist").innerHTML = "";
-  $("cols").value = 5;
-  $("rows").value = 4;
-  $("inner").value = 25;
-  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, tilts: [0, 0, 0, 0], devices: [], walls: [] };
-  syncSize();
-  renderWalls();
+  resetOpenCase();
   $("status").textContent = "new empty case — not saved yet";
 });
 $("addnote")?.addEventListener("click", async () => {
@@ -562,14 +669,35 @@ $("addnote")?.addEventListener("click", async () => {
   }
   const text = $("notetext").value.trim();
   if (!text) return;
-  await api(`/api/cases/${currentCaseId}/notes`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-  $("notetext").value = "";
-  await loadNotes();
+  try {
+    await api(`/api/cases/${currentCaseId}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    $("notetext").value = "";
+    await loadNotes();
+  } catch (e) {
+    $("status").textContent = String(e);
+  }
 });
+
+const brand = $("brand");
+const brandBtn = $("brandbtn");
+if (brand && brandBtn) {
+  brandBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = !brand.classList.contains("open");
+    brand.classList.toggle("open", open);
+    brandBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  document.addEventListener("click", (e) => {
+    if (!brand.contains(e.target)) {
+      brand.classList.remove("open");
+      brandBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+}
 
 fetch("/api/devices")
   .then((r) => r.json())
@@ -583,4 +711,8 @@ fetch("/api/devices")
     bootLibrary().catch((e) => {
       $("status").textContent = String(e);
     });
+  })
+  .catch((e) => {
+    $("status").textContent = String(e);
+    bootLibrary().catch((err) => { $("status").textContent = String(err); });
   });

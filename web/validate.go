@@ -19,7 +19,7 @@ func clampString(s string, n int) string {
 }
 
 func validID(s string) bool {
-	return s == "" || idRe.MatchString(s)
+	return idRe.MatchString(s)
 }
 
 func validateLayout(l *Layout) error {
@@ -45,7 +45,10 @@ func validateLayout(l *Layout) error {
 			l.Tilts = append(l.Tilts, 0)
 		}
 	}
-	type span struct{ id string; c0, r0, c1, r1 int }
+	type span struct {
+		id             string
+		c0, r0, c1, r1 int
+	}
 	var used []span
 	for _, d := range l.Devices {
 		if !validID(d.ID) {
@@ -103,6 +106,9 @@ func zipFileName(title string) string {
 		}
 	}
 	s := strings.Trim(b.String(), "-")
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
 	if s == "" {
 		s = "panel-case"
 	}

@@ -12,7 +12,7 @@ const PEG_H = 2.5;
 const PEG_D = 4;
 const PEG_INSET = 3;
 const EX = FIT + SKIRT;
-const CUT = 0xff4d6d; // high-contrast cutout fill (YAPP-style lid holes)
+const CUT = 0xff4d6d;
 
 let renderer, scene, camera, controls, root;
 let viewMode = "assembly";
@@ -36,6 +36,17 @@ function accumZ(l, i) {
   for (let j = 0; j < i; j++) z += PITCH * Math.sin((tiltOf(l, j) * Math.PI) / 180);
   return z;
 }
+function wallH(l) {
+  return BOT + (l.inner_h || 25);
+}
+function lidWY(l, i, ly) {
+  const t = (tiltOf(l, i) * Math.PI) / 180;
+  return accumY(l, i) + ly * Math.cos(t) - wallH(l) * Math.sin(t);
+}
+function lidWZ(l, i, ly) {
+  const t = (tiltOf(l, i) * Math.PI) / 180;
+  return accumZ(l, i) + ly * Math.sin(t) + wallH(l) * Math.cos(t);
+}
 
 function roundedRectPath(shape, x, y, w, h, r) {
   r = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -50,6 +61,26 @@ function roundedRectPath(shape, x, y, w, h, r) {
   shape.quadraticCurveTo(x, y, x + r, y);
 }
 
+function reversePath(p) {
+  const pts = p.getPoints(32);
+  const out = new THREE.Path();
+  if (!pts.length) return p;
+  out.moveTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+  for (let i = pts.length - 2; i >= 0; i--) out.lineTo(pts[i].x, pts[i].y);
+  out.autoClose = true;
+  return out;
+}
+
+function offsetPath(p, dx, dy) {
+  const pts = p.getPoints(32);
+  const out = new THREE.Path();
+  if (!pts.length) return p;
+  out.moveTo(pts[0].x + dx, pts[0].y + dy);
+  for (let i = 1; i < pts.length; i++) out.lineTo(pts[i].x + dx, pts[i].y + dy);
+  out.autoClose = true;
+  return out;
+}
+
 function holePath(cut) {
   const p = new THREE.Path();
   const x = cut.x || 0;
@@ -57,26 +88,33 @@ function holePath(cut) {
   if (cut.type === "hole") {
     const r = (cut.d || 8) / 2;
     p.absarc(x, y, r, 0, Math.PI * 2, true);
-  } else if (cut.type === "slot") {
+    return p;
+  }
+  if (cut.type === "slot") {
     const w = cut.w || 4;
     const len = cut.l || 20;
     roundedRectPath(p, x - w / 2, y - len / 2, w, len, Math.min(w, len) / 2);
-  } else if (cut.type === "window") {
+    return reversePath(p);
+  }
+  if (cut.type === "window") {
     const w = cut.w || 20;
     const h = cut.h || 12;
     roundedRectPath(p, x - w / 2, y - h / 2, w, h, 1.2);
-  } else if (cut.type === "grill") {
+    return reversePath(p);
+  }
+  if (cut.type === "grill") {
     const w = cut.w || 12;
     const h = cut.h || 8;
     roundedRectPath(p, x - w / 2, y - h / 2, w, h, 0.6);
+    return reversePath(p);
   }
   return p;
 }
 
-function deviceCenter(placed, def) {
+function deviceCenterLocal(placed, def, row) {
   return {
     x: (placed.c + def.cells_x / 2) * PITCH,
-    y: (placed.r + def.cells_y / 2) * PITCH,
+    y: (placed.r - row + def.cells_y / 2) * PITCH,
   };
 }
 
@@ -87,7 +125,21 @@ function placedDevices(l) {
     .filter((x) => x.def && x.def.place !== "none");
 }
 
-function addCutoutMarkers(parent, cx, cy, z, cuts, rotX) {
+function punchDeviceHoles(shape, l, rowFilter) {
+  for (const { p, def } of placedDevices(l)) {
+    if (def.place === "bottom" || def.place === "wall") continue;
+    const dy = def.cells_y || 1;
+    if (rowFilter != null && !(p.r <= rowFilter && p.r + dy > rowFilter)) continue;
+    const c = rowFilter == null
+      ? { x: (p.c + def.cells_x / 2) * PITCH, y: (p.r + dy / 2) * PITCH }
+      : deviceCenterLocal(p, def, rowFilter);
+    for (const cut of def.cutouts || []) {
+      shape.holes.push(offsetPath(holePath(cut), c.x, c.y));
+    }
+  }
+}
+
+function addCutoutMarkers(parent, cx, cy, z, cuts) {
   const mat = new THREE.MeshBasicMaterial({ color: CUT, side: THREE.DoubleSide });
   for (const cut of cuts || []) {
     const x = cx + (cut.x || 0);
@@ -108,12 +160,10 @@ function addCutoutMarkers(parent, cx, cy, z, cuts, rotX) {
         g.add(sl);
       }
       g.position.set(x, y, z);
-      if (rotX) g.rotation.x = rotX;
       parent.add(g);
       continue;
     } else continue;
     mesh.position.set(x, y, z);
-    if (rotX) mesh.rotation.x += rotX;
     parent.add(mesh);
   }
 }
@@ -124,25 +174,26 @@ function lidWithHoles(l, inner) {
   const w = cols * PITCH + 2 * WALL + 2 * EX;
   const d = rows * PITCH + 2 * WALL + 2 * EX;
   const shape = new THREE.Shape();
-  const e = Math.min(l.edge_mm || 2, 6);
+  const e = Math.min(Number.isFinite(l.edge_mm) ? l.edge_mm : 2, 6);
   roundedRectPath(shape, -WALL - EX, -WALL - EX, w, d, l.edge_style === "square" ? 0 : e);
+  punchDeviceHoles(shape, l, null);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: TOP, bevelEnabled: false, curveSegments: 12 });
+  const mesh = new THREE.Mesh(
+    geo,
+    new THREE.MeshLambertMaterial({ color: 0xd6dee8, side: THREE.DoubleSide })
+  );
+  mesh.position.z = BOT + inner;
+  return mesh;
+}
 
-  for (const { p, def } of placedDevices(l)) {
-    if (def.place === "bottom" || def.place === "wall") continue;
-    const c = deviceCenter(p, def);
-    for (const cut of def.cutouts || []) {
-      const hp = holePath(cut);
-      // offset hole path by device center
-      const shifted = new THREE.Path();
-      const pts = hp.getPoints(24);
-      if (!pts.length) continue;
-      shifted.moveTo(pts[0].x + c.x, pts[0].y + c.y);
-      for (let i = 1; i < pts.length; i++) shifted.lineTo(pts[i].x + c.x, pts[i].y + c.y);
-      shifted.autoClose = true;
-      shape.holes.push(shifted);
-    }
-  }
-
+function lidRowWithHoles(l, i, inner) {
+  const cols = l.cols;
+  const rows = l.rows;
+  const y0 = i === 0 ? -WALL - EX : 0;
+  const y1 = PITCH + (i === rows - 1 ? WALL + EX : 0);
+  const shape = new THREE.Shape();
+  roundedRectPath(shape, -WALL - EX, y0, cols * PITCH + 2 * WALL + 2 * EX, y1 - y0, 0);
+  punchDeviceHoles(shape, l, i);
   const geo = new THREE.ExtrudeGeometry(shape, { depth: TOP, bevelEnabled: false, curveSegments: 12 });
   const mesh = new THREE.Mesh(
     geo,
@@ -165,6 +216,7 @@ function build(l) {
   const postC = 0x64748b;
   const pcbC = 0x166534;
   const bossC = 0xf59e0b;
+  const lidRows = [];
 
   const wallMat = new THREE.MeshLambertMaterial({ color: wallC });
   function box(parent, w, h, d, x, y, z, mat) {
@@ -199,35 +251,36 @@ function build(l) {
       const lidRow = new THREE.Group();
       lidRow.position.set(0, accumY(l, i), accumZ(l, i));
       lidRow.rotation.x = t;
-      const y0 = i === 0 ? -WALL : 0;
-      const yl = PITCH + (i === 0 ? WALL : 0) + (i === rows - 1 ? WALL : 0);
-      const cw = cols * PITCH + 2 * WALL;
-      box(lidRow, cw, yl, TOP, cols * PITCH / 2, y0 + yl / 2, BOT + inner + TOP / 2, new THREE.MeshLambertMaterial({ color: 0xd6dee8 }));
+      lidRow.add(lidRowWithHoles(l, i, inner));
       lid.add(lidRow);
+      lidRows[i] = lidRow;
     }
   }
 
   const zCut = BOT + inner + TOP / 2;
   for (const { p, def } of placedDevices(l)) {
-    const c = deviceCenter(p, def);
+    const parent = (!flat && lidRows[p.r]) ? lidRows[p.r] : lid;
+    const loc = (!flat && lidRows[p.r])
+      ? deviceCenterLocal(p, def, p.r)
+      : { x: (p.c + def.cells_x / 2) * PITCH, y: (p.r + def.cells_y / 2) * PITCH };
     if (def.place !== "bottom" && def.place !== "wall") {
-      addCutoutMarkers(lid, c.x, c.y, zCut, def.cutouts);
-      // PCB ghost under the lid
+      addCutoutMarkers(parent, loc.x, loc.y, zCut, def.cutouts);
       if (def.pcb_mm) {
         const pcb = new THREE.Mesh(
           new THREE.BoxGeometry(def.pcb_mm[0], def.pcb_mm[1], 1.6),
           new THREE.MeshLambertMaterial({ color: pcbC })
         );
-        pcb.position.set(c.x, c.y, BOT + inner - (def.boss_mm || 6) - 0.8);
-        lid.add(pcb);
+        pcb.position.set(loc.x, loc.y, BOT + inner - (def.boss_mm || 6) - 0.8);
+        parent.add(pcb);
       }
       for (const h of def.holes || []) {
         const b = new THREE.Mesh(
           new THREE.CylinderGeometry(3.2, 3.2, def.boss_mm || 6, 12),
           new THREE.MeshLambertMaterial({ color: bossC })
         );
-        b.position.set(c.x + h[0], c.y + h[1], BOT + inner - (def.boss_mm || 6) / 2);
-        lid.add(b);
+        b.rotation.x = Math.PI / 2;
+        b.position.set(loc.x + h[0], loc.y + h[1], BOT + inner - (def.boss_mm || 6) / 2);
+        parent.add(b);
       }
     }
     if (def.place === "bottom" && def.pcb_mm) {
@@ -235,12 +288,11 @@ function build(l) {
         new THREE.BoxGeometry(def.pcb_mm[0], def.pcb_mm[1], 1.6),
         new THREE.MeshLambertMaterial({ color: pcbC })
       );
-      pcb.position.set(c.x, c.y, BOT + 4);
+      pcb.position.set(loc.x, loc.y, BOT + 4);
       tray.add(pcb);
     }
   }
 
-  // wall cutouts (YAPP left/right/front/back planes)
   for (const w of l.walls || []) {
     const def = byId()[w.id];
     if (!def) continue;
@@ -249,9 +301,16 @@ function build(l) {
     const z = BOT + inner / 2;
     const grp = new THREE.Group();
     if (w.side === "left") grp.position.set(-WALL / 2, pos, z);
-    else if (w.side === "right") grp.position.set(cols * PITCH + WALL / 2, pos, z);
-    else if (w.side === "front") grp.position.set(pos, -WALL / 2, z);
-    else grp.position.set(pos, rows * PITCH + WALL / 2, z);
+    else if (w.side === "right") {
+      grp.position.set(cols * PITCH + WALL / 2, pos, z);
+      grp.rotation.z = Math.PI;
+    } else if (w.side === "front") {
+      grp.position.set(pos, -WALL / 2, z);
+      grp.rotation.z = -Math.PI / 2;
+    } else {
+      grp.position.set(pos, rows * PITCH + WALL / 2, z);
+      grp.rotation.z = Math.PI / 2;
+    }
     const wc = def.wall_cutout || cuts[0];
     if (wc && wc.type === "hole") {
       const m = new THREE.Mesh(
@@ -259,8 +318,6 @@ function build(l) {
         new THREE.MeshBasicMaterial({ color: CUT })
       );
       m.rotation.z = Math.PI / 2;
-      if (w.side === "front" || w.side === "back") m.rotation.z = 0;
-      if (w.side === "front" || w.side === "back") m.rotation.x = Math.PI / 2;
       grp.add(m);
     } else if (wc && wc.type === "grill") {
       const m = new THREE.Mesh(
@@ -274,34 +331,59 @@ function build(l) {
 
   const pegGeom = new THREE.CylinderGeometry(PEG_D / 2, PEG_D / 2, PEG_H, 12);
   const postMat = new THREE.MeshLambertMaterial({ color: postC });
-  const pegZ = BOT + inner - PEG_H / 2;
-  function addPeg(x, y) {
+  function addPeg(x, y, z) {
     const p = new THREE.Mesh(pegGeom, postMat);
-    p.position.set(x, y, pegZ);
+    p.rotation.x = Math.PI / 2;
+    p.position.set(x, y, z - PEG_H / 2);
     lid.add(p);
   }
   for (let r = 0; r < rows; r++) {
     if (Math.abs(tiltOf(l, r)) >= 0.05) continue;
-    addPeg(-PEG_INSET, (r + 0.5) * PITCH);
-    addPeg(cols * PITCH + PEG_INSET, (r + 0.5) * PITCH);
+    addPeg(-PEG_INSET, lidWY(l, r, PITCH / 2), lidWZ(l, r, PITCH / 2));
+    addPeg(cols * PITCH + PEG_INSET, lidWY(l, r, PITCH / 2), lidWZ(l, r, PITCH / 2));
   }
-  const yf = -PEG_INSET;
-  const yb = rows * PITCH + PEG_INSET;
-  if (cols > 1) {
-    for (let c = 1; c < cols; c++) addPeg(c * PITCH, yf), addPeg(c * PITCH, yb);
-  } else {
-    addPeg(PITCH / 2, yf);
-    addPeg(PITCH / 2, yb);
+  if (Math.abs(tiltOf(l, 0)) < 0.05) {
+    const yf = lidWY(l, 0, -PEG_INSET);
+    const zf = lidWZ(l, 0, -PEG_INSET);
+    if (cols > 1) {
+      for (let c = 1; c < cols; c++) addPeg(c * PITCH, yf, zf);
+    } else addPeg(PITCH / 2, yf, zf);
+  }
+  if (Math.abs(tiltOf(l, rows - 1)) < 0.05) {
+    const yb = lidWY(l, rows - 1, PITCH + PEG_INSET);
+    const zb = lidWZ(l, rows - 1, PITCH + PEG_INSET);
+    if (cols > 1) {
+      for (let c = 1; c < cols; c++) addPeg(c * PITCH, yb, zb);
+    } else addPeg(PITCH / 2, yb, zb);
   }
 
   const skirtMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
   const zSk = BOT + inner - SKIRT_H / 2;
-  const cw = cols * PITCH + 2 * WALL + 2 * EX;
-  const cd = rows * PITCH + 2 * WALL + 2 * EX;
-  box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, -WALL - FIT - SKIRT / 2, zSk, skirtMat);
-  box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, rows * PITCH + WALL + FIT + SKIRT / 2, zSk, skirtMat);
-  box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, -WALL - FIT - SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
-  box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
+  if (flat) {
+    const cw = cols * PITCH + 2 * WALL + 2 * EX;
+    const cd = rows * PITCH + 2 * WALL + 2 * EX;
+    box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, -WALL - FIT - SKIRT / 2, zSk, skirtMat);
+    box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, rows * PITCH + WALL + FIT + SKIRT / 2, zSk, skirtMat);
+    box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, -WALL - FIT - SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
+    box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
+  } else {
+    for (let i = 0; i < rows; i++) {
+      const rowG = lidRows[i];
+      if (!rowG) continue;
+      const y0 = i === 0 ? -WALL - EX : 0;
+      const yl = PITCH + (i === 0 ? WALL + EX : 0) + (i === rows - 1 ? WALL + EX : 0);
+      box(rowG, SKIRT, yl, SKIRT_H, -WALL - FIT - SKIRT / 2, y0 + yl / 2, zSk, skirtMat);
+      box(rowG, SKIRT, yl, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, y0 + yl / 2, zSk, skirtMat);
+      if (i === 0 && Math.abs(tiltOf(l, 0)) < 0.05) {
+        const cw = cols * PITCH + 2 * WALL + 2 * EX;
+        box(rowG, cw, SKIRT, SKIRT_H, cols * PITCH / 2, -WALL - FIT - SKIRT / 2, zSk, skirtMat);
+      }
+      if (i === rows - 1 && Math.abs(tiltOf(l, rows - 1)) < 0.05) {
+        const cw = cols * PITCH + 2 * WALL + 2 * EX;
+        box(rowG, cw, SKIRT, SKIRT_H, cols * PITCH / 2, PITCH + WALL + FIT + SKIRT / 2, zSk, skirtMat);
+      }
+    }
+  }
 
   if (viewMode === "bottom") g.add(tray);
   else if (viewMode === "top") {
@@ -315,28 +397,40 @@ function build(l) {
   return g;
 }
 
+function fitCamera() {
+  if (!root || !camera || !controls) return;
+  const box = new THREE.Box3().setFromObject(root);
+  if (box.isEmpty()) return;
+  const c = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const fov = (camera.fov * Math.PI) / 180;
+  const aspect = Math.max(camera.aspect, 0.1);
+  const fitH = size.y / 2 / Math.tan(fov / 2);
+  const fitW = size.x / 2 / (Math.tan(fov / 2) * aspect);
+  const dist = Math.max(fitH, fitW, size.z, 40) * 1.45;
+  controls.target.copy(c);
+  camera.position.set(c.x + dist * 0.75, c.y + dist * 0.62, c.z + dist * 0.82);
+  camera.near = 0.5;
+  camera.far = Math.max(4000, dist * 20);
+  camera.updateProjectionMatrix();
+  controls.update();
+}
+
 export function rebuildPreview() {
   if (!scene) return;
   if (root) {
     scene.remove(root);
     root.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) m.dispose();
+      }
     });
   }
   root = build(layout());
   scene.add(root);
-  const box = new THREE.Box3().setFromObject(root);
-  if (!box.isEmpty() && controls && camera) {
-    const c = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z, 40);
-    controls.target.copy(c);
-    camera.position.set(c.x + maxDim * 1.15, c.y + maxDim * 0.95, c.z + maxDim * 1.25);
-    camera.near = 0.5;
-    camera.far = Math.max(4000, maxDim * 20);
-    camera.updateProjectionMatrix();
-    controls.update();
-  }
+  fitCamera();
 }
 
 function init() {
@@ -344,11 +438,13 @@ function init() {
   if (!el) return;
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x02080d);
-  camera = new THREE.PerspectiveCamera(40, el.clientWidth / Math.max(el.clientHeight, 1), 1, 4000);
+  const w = Math.max(el.clientWidth, 1);
+  const h = Math.max(el.clientHeight, 1);
+  camera = new THREE.PerspectiveCamera(40, w / h, 1, 4000);
   camera.position.set(200, 170, 240);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
-  renderer.setSize(el.clientWidth, el.clientHeight);
+  renderer.setSize(w, h);
   el.appendChild(renderer.domElement);
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -358,11 +454,15 @@ function init() {
   scene.add(dir);
   scene.add(new THREE.GridHelper(420, 16, 0x155e75, 0x0b2a33));
   rebuildPreview();
-  window.addEventListener("resize", () => {
-    camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1);
+  const sizeView = () => {
+    const nw = Math.max(el.clientWidth, 1);
+    const nh = Math.max(el.clientHeight, 1);
+    camera.aspect = nw / nh;
     camera.updateProjectionMatrix();
-    renderer.setSize(el.clientWidth, el.clientHeight);
-  });
+    renderer.setSize(nw, nh);
+  };
+  window.addEventListener("resize", sizeView);
+  if (window.ResizeObserver) new ResizeObserver(sizeView).observe(el);
   document.querySelectorAll("[data-view]").forEach((b) => {
     b.addEventListener("click", () => {
       viewMode = b.getAttribute("data-view");

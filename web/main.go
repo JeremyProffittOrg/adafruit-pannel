@@ -44,9 +44,12 @@ func newApp() *fiber.App {
 		c.Set("X-Frame-Options", "DENY")
 		c.Set("Referrer-Policy", "no-referrer")
 		c.Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'")
+		if strings.HasPrefix(publicBase(), "https://") {
+			c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		p := c.Path()
-		if strings.HasPrefix(p, "/api/") || p == "/" || strings.HasSuffix(p, ".html") || strings.HasSuffix(p, ".js") || strings.HasSuffix(p, ".css") {
-			c.Set("Cache-Control", "no-store")
+		if strings.HasPrefix(p, "/api/") || p == "/" || p == "/login" || p == "/logout" || strings.HasPrefix(p, "/auth/") || strings.HasSuffix(p, ".html") || strings.HasSuffix(p, ".js") || strings.HasSuffix(p, ".css") {
+			c.Set("Cache-Control", "no-store, private")
 		} else {
 			c.Set("Cache-Control", "public, max-age=86400")
 		}

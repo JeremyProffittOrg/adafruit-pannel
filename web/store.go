@@ -27,14 +27,14 @@ type Folder struct {
 }
 
 type CaseRecord struct {
-	ID        string   `json:"id" dynamodbav:"id"`
-	Title     string   `json:"title" dynamodbav:"title"`
-	FolderID  string   `json:"folder_id" dynamodbav:"folder_id"`
-	Notes     string   `json:"notes" dynamodbav:"notes"`
-	Layout    Layout   `json:"layout" dynamodbav:"layout"`
-	Parts     []string `json:"parts" dynamodbav:"parts"`
-	Created   string   `json:"created" dynamodbav:"created"`
-	Updated   string   `json:"updated" dynamodbav:"updated"`
+	ID       string   `json:"id" dynamodbav:"id"`
+	Title    string   `json:"title" dynamodbav:"title"`
+	FolderID string   `json:"folder_id" dynamodbav:"folder_id"`
+	Notes    string   `json:"notes" dynamodbav:"notes"`
+	Layout   Layout   `json:"layout" dynamodbav:"layout"`
+	Parts    []string `json:"parts" dynamodbav:"parts"`
+	Created  string   `json:"created" dynamodbav:"created"`
+	Updated  string   `json:"updated" dynamodbav:"updated"`
 }
 
 type NoteRecord struct {
@@ -123,11 +123,11 @@ func (s *Store) get(ctx context.Context, pk, sk string) (map[string]types.Attrib
 
 func (s *Store) upsertProfile(ctx context.Context, u sessionUser) error {
 	return s.put(ctx, map[string]any{
-		"pk":     userPK(u.ID),
-		"sk":     "PROFILE",
-		"id":     u.ID,
-		"name":   u.Name,
-		"email":  u.Email,
+		"pk":      userPK(u.ID),
+		"sk":      "PROFILE",
+		"id":      u.ID,
+		"name":    u.Name,
+		"email":   u.Email,
 		"updated": nowISO(),
 	})
 }

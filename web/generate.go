@@ -77,7 +77,7 @@ func scadEscape(s string) string {
 	return strings.ReplaceAll(s, `"`, `\"`)
 }
 
-func writeLayout(path, part string, l Layout) error {
+func normalizeLayout(l *Layout) {
 	if l.Cols < 1 {
 		l.Cols = 1
 	}
@@ -92,14 +92,18 @@ func writeLayout(path, part string, l Layout) error {
 			l.Tilts = append(l.Tilts, 0)
 		}
 	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "// generated %s\n", time.Now().Format(time.RFC3339))
 	if l.EdgeStyle == "" {
 		l.EdgeStyle = "round"
 	}
-	if l.EdgeMM <= 0 {
+	if l.EdgeMM < 0 {
 		l.EdgeMM = 2
 	}
+}
+
+func writeLayout(path, part string, l Layout) error {
+	normalizeLayout(&l)
+	var b strings.Builder
+	fmt.Fprintf(&b, "// generated %s\n", time.Now().Format(time.RFC3339))
 	fmt.Fprintf(&b, "PART = \"%s\";\n", scadEscape(part))
 	fmt.Fprintf(&b, "COLS = %d;\nROWS = %d;\nINNER_H = %.3f;\n", l.Cols, l.Rows, l.InnerH)
 	fmt.Fprintf(&b, "EDGE_STYLE = \"%s\";\nEDGE_MM = %.3f;\n", scadEscape(l.EdgeStyle), l.EdgeMM)
@@ -195,42 +199,78 @@ func renderPart(exe, layout, out, part string) error {
 	return nil
 }
 
+func rowFlat(l Layout, r int) bool {
+	if r < 0 || r >= l.Rows {
+		return false
+	}
+	t := 0.0
+	if r < len(l.Tilts) {
+		t = l.Tilts[r]
+	}
+	return t < 0.05 && t > -0.05
+}
+
 func postCount(l Layout) int {
 	n := 0
 	for r := 0; r < l.Rows; r++ {
-		t := 0.0
-		if r < len(l.Tilts) {
-			t = l.Tilts[r]
-		}
-		if t < 0.05 && t > -0.05 {
+		if rowFlat(l, r) {
 			n += 2
 		}
 	}
-	if l.Cols > 1 {
-		n += 2 * (l.Cols - 1)
-	} else {
-		n += 2
+	end := 0
+	if rowFlat(l, 0) {
+		end++
+	}
+	if l.Rows > 0 && rowFlat(l, l.Rows-1) {
+		end++
+	}
+	if end > 0 {
+		if l.Cols > 1 {
+			n += end * (l.Cols - 1)
+		} else {
+			n += end
+		}
 	}
 	return n
 }
 
-func m25Count(l Layout) int {
-	n := 0
+func screwLabel(d float64) string {
+	if d <= 0 {
+		return ""
+	}
+	switch {
+	case d < 2.35:
+		return "M2x6 screw into PCB"
+	case d < 2.75:
+		return "M2.5x6 screw into PCB"
+	default:
+		return "M3x6 screw into PCB"
+	}
+}
+
+func pcbScrewLines(l Layout) []bomLine {
+	qty := map[string]int{}
 	for _, d := range l.Devices {
 		def, ok := catalogByID[d.ID]
-		if !ok {
+		if !ok || len(def.Holes) == 0 {
 			continue
 		}
-		n += len(def.Holes)
-	}
-	for _, w := range l.Walls {
-		def, ok := catalogByID[w.ID]
-		if !ok {
+		lab := screwLabel(def.HoleD)
+		if lab == "" {
 			continue
 		}
-		n += len(def.Holes)
+		qty[lab] += len(def.Holes)
 	}
-	return n
+	keys := make([]string, 0, len(qty))
+	for k := range qty {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]bomLine, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, bomLine{qty[k], k, "hardware", ""})
+	}
+	return out
 }
 
 type bomLine struct {
@@ -248,9 +288,7 @@ func bomLines(l Layout) []bomLine {
 	if n := postCount(l); n > 0 {
 		out = append(out, bomLine{n, "M3 screw from below (tray into lid peg)", "hardware", ""})
 	}
-	if n := m25Count(l); n > 0 {
-		out = append(out, bomLine{n, "M2.5x6 screw into PCB", "hardware", ""})
-	}
+	out = append(out, pcbScrewLines(l)...)
 	qty := map[string]int{}
 	order := []string{}
 	add := func(id string) {
@@ -307,13 +345,14 @@ func bomMarkdown(l Layout) string {
 		fmt.Fprintf(&b, "| %d | %s | %s | %s |\n", row.Qty, row.Item, row.Kind, link)
 	}
 	b.WriteString("\nPrint the lid as exported (visible face on the bed).\n")
-	b.WriteString("If this zip has no STL files, install OpenSCAD and run:\n\n")
-	b.WriteString("    openscad -o bottom.stl job-bottom.scad\n")
-	b.WriteString("    openscad -o top.stl job-top.scad\n")
+	b.WriteString("If this zip has no STL files, install OpenSCAD and run from the zip root:\n\n")
+	b.WriteString("    openscad -o bottom.stl cad/generated/job-bottom.scad\n")
+	b.WriteString("    openscad -o top.stl cad/generated/job-top.scad\n")
 	return b.String()
 }
 
 func layoutJSON(l Layout) ([]byte, error) {
+	normalizeLayout(&l)
 	return json.MarshalIndent(l, "", "  ")
 }
 
@@ -364,10 +403,16 @@ func buildZipBytes(l Layout) ([]byte, error) {
 		files[name] = b
 		return nil
 	}
-	if err := addFile("job-bottom.scad", bottomSCAD); err != nil {
+	if err := addFile("cad/generated/job-bottom.scad", bottomSCAD); err != nil {
 		return nil, err
 	}
-	if err := addFile("job-top.scad", topSCAD); err != nil {
+	if err := addFile("cad/generated/job-top.scad", topSCAD); err != nil {
+		return nil, err
+	}
+	if err := addFile("cad/case.scad", filepath.Join(cad, "case.scad")); err != nil {
+		return nil, err
+	}
+	if err := addFile("cad/devices.scad", filepath.Join(cad, "devices.scad")); err != nil {
 		return nil, err
 	}
 	exe := openscadPath()
@@ -402,7 +447,8 @@ func buildZipBytes(l Layout) ([]byte, error) {
 	w := zip.NewWriter(&buf)
 	for _, name := range []string{
 		"BOM.md", "BOM.csv", "layout.json",
-		"job-bottom.scad", "job-top.scad",
+		"cad/case.scad", "cad/devices.scad",
+		"cad/generated/job-bottom.scad", "cad/generated/job-top.scad",
 		"bottom.stl", "top.stl",
 	} {
 		b, ok := files[name]
