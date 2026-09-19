@@ -87,15 +87,15 @@ def main():
     sha = git(["rev-parse", "HEAD"])
     repl = {
         "{{OUTCOME_ONE_LINE}}": (
-            "Two-piece case parts PDF is attached: bottom tray and print-flipped top lid "
-            "for 3 NeoSliders + 2 quad rotaries, plus the tilted-tray demo."
+            "Updated case-parts.pdf: posts live in the 8 mm lid rim, not the board grid. "
+            "Angled sides hull full height. Tray + flipped lid attached."
         ),
         "{{SHA}}": sha[:12],
         "{{COMMIT_SUBJECT}}": git(["log", "-1", "--format=%s"]),
         "{{ACTUAL_COMMAND_OUTPUT}}": (
             f"PDF  {PDF}  {PDF.stat().st_size} bytes\n"
-            f"bottom.stl  135.0 x 109.6 x 29.6 mm\n"
-            f"top.stl     134.6 x 109.2 x 28.0 mm  (already flipped)\n"
+            f"bottom.stl  143.0 x 117.6 x 29.6 mm  (8 mm walls)\n"
+            f"top.stl     143.0 x 117.6 x 28.0 mm  (already flipped, posts on back of lid)\n"
             f"3mf         print-kits/sliders-quads-case/sliders-quads-case.3mf"
         ),
         "{{ITEM}}": "Second mail: application shortcuts.",
@@ -115,7 +115,7 @@ def main():
     msg["From"] = FROM_ADDR
     msg["To"] = TO_ADDR
     msg["Reply-To"] = TO_ADDR
-    msg["Subject"] = "adafruit-pannel run status #3 — two-piece case parts PDF attached"
+    msg["Subject"] = "adafruit-pannel run status #6 — case parts PDF, posts in the rim"
     msg["Date"] = email.utils.format_datetime(dt.datetime.now().astimezone())
     msg["Message-ID"] = email.utils.make_msgid(idstring="adafruit-pannel-case-pdf", domain="jeremy.ninja")
     msg.set_content("Two-piece case parts PDF is attached.", charset="utf-8")
