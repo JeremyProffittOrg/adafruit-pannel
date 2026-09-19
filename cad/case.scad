@@ -5,7 +5,10 @@
 // M3 from below through the floor and wall into the lid pegs.
 // Pegs/holes on angled rows are vertical in world Z, not normal to the slope.
 // EDGE_STYLE: "square" | "round" | "chamfer"   EDGE_MM radius/chamfer.
-// Set COLS, ROWS, INNER_H, TILTS, NDEV, DEV_*, EDGE_* then include this file.
+// Set COLS, ROWS, INNER_H, TILTS, FACE_TILT, NDEV, DEV_*, EDGE_* then include this file.
+// FACE_TILT 0–45: rotate tray about the front sitting edge and add a foot.
+// 0 = flat. 30 + hang side "bottom" = wall panel that leans out 30 deg.
+// Lid print stays face-on-bed; only the tray/foot is wedged.
 // Quality gates: python scripts/quality_gate.py --preset sliders-quads
 
 include <devices.scad>
@@ -38,10 +41,21 @@ C_EDGE_MM  = is_undef(EDGE_MM)    ? 2.0 : EDGE_MM;
 C_HANG     = is_undef(HANG)       ? 1    : HANG;  // legacy: 1 = default back keyholes
 C_NHANG    = is_undef(NHANG)      ? 0    : NHANG;
 C_OVERLAP  = is_undef(OVERLAP)    ? 1    : OVERLAP; // 1 = lid skirt hangs over the tray
+C_FACE_IN  = is_undef(FACE_TILT)  ? 0    : FACE_TILT;
+C_FACE     = min(45, max(0, C_FACE_IN));
 $fn = 28;
 
 C_WALL_H = C_BOT + C_INNER;
 C_EX     = (C_OVERLAP != 0) ? (C_FIT + C_SKIRT) : 0;
+function face_on() = abs(C_FACE) > 0.05;
+
+// Rotate about the front bottom edge (y = -C_WALL, z = 0) so the back lifts.
+module faced() {
+    translate([0, -C_WALL, 0])
+        rotate([C_FACE, 0, 0])
+            translate([0, C_WALL, 0])
+                children();
+}
 
 function tilt_of(i) = (len(C_TILTS) > i) ? C_TILTS[i] : 0;
 function accum_y(i) = (i <= 0) ? 0 : accum_y(i-1) + C_PITCH * cos(tilt_of(i-1));
@@ -323,9 +337,15 @@ module hang_cut(orient) {
         rotate(hang_rot(orient)) hang_keyhole_2d();
 }
 
+function hang_bottom_y() = max(C_PITCH * 0.5, C_ROWS * C_PITCH - 8);
+
 module hang_one(side, pos, orient) {
     zc = C_WALL_H - 12;
-    if (side == "back")
+    if (side == "bottom")
+        translate([(pos + 0.5) * C_PITCH, hang_bottom_y(), -1])
+            linear_extrude(C_BOT + 4)
+                rotate(hang_rot(orient)) hang_keyhole_2d();
+    else if (side == "back")
         at_row(C_ROWS - 1)
             translate([(pos + 0.5) * C_PITCH, C_PITCH + C_WALL / 2, zc])
                 rotate([90, 0, 0]) hang_cut(orient);
@@ -339,7 +359,7 @@ module hang_one(side, pos, orient) {
         at_row(r)
             translate([-C_WALL / 2, ly, zc])
                 rotate([90, 0, 90]) hang_cut(orient);
-    } else {
+    } else if (side == "right") {
         r = min(C_ROWS - 1, max(0, floor(pos)));
         ly = (pos - r + 0.5) * C_PITCH;
         at_row(r)
@@ -351,12 +371,57 @@ module hang_one(side, pos, orient) {
 module hang_holes() {
     if (C_NHANG > 0)
         for (i = [0:C_NHANG - 1])
-            hang_one(HANG_SIDE[i], HANG_POS[i], HANG_ORIENT[i]);
+            if (HANG_SIDE[i] != "bottom")
+                hang_one(HANG_SIDE[i], HANG_POS[i], HANG_ORIENT[i]);
     else if (C_HANG)
         at_row(C_ROWS - 1)
             for (x = hang_xs())
                 translate([x, C_PITCH + C_WALL / 2, C_WALL_H - 12])
                     rotate([90, 0, 0]) hang_cut("down");
+}
+
+module hang_foot_holes() {
+    if (C_NHANG > 0)
+        for (i = [0:C_NHANG - 1])
+            if (HANG_SIDE[i] == "bottom")
+                hang_one("bottom", HANG_POS[i], HANG_ORIENT[i]);
+}
+
+// Sitting/hanging foot under a wedged tray. Open window so M3 screws
+// in the tilted floor stay reachable; back rail holds bottom keyholes.
+module sitting_foot() {
+    linear_extrude(C_BOT)
+        difference() {
+            translate([-C_WALL, -C_WALL]) edge_rect(case_w(), case_d());
+            translate([0, 0])
+                square([C_COLS * C_PITCH, max(8, C_ROWS * C_PITCH - 16)]);
+        }
+    hull() {
+        translate([-C_WALL, -C_WALL, 0]) cube([C_WALL, case_d(), C_BOT]);
+        faced() translate([-C_WALL, -C_WALL, 0]) cube([C_WALL, case_d(), C_BOT]);
+    }
+    hull() {
+        translate([C_COLS * C_PITCH, -C_WALL, 0]) cube([C_WALL, case_d(), C_BOT]);
+        faced() translate([C_COLS * C_PITCH, -C_WALL, 0]) cube([C_WALL, case_d(), C_BOT]);
+    }
+    hull() {
+        translate([-C_WALL, C_ROWS * C_PITCH, 0]) cube([case_w(), C_WALL, C_BOT]);
+        faced() translate([-C_WALL, C_ROWS * C_PITCH, 0]) cube([case_w(), C_WALL, C_BOT]);
+    }
+}
+
+module bottom_tray_use() {
+    difference() {
+        union() {
+            if (face_on()) {
+                faced() bottom_tray();
+                sitting_foot();
+            } else {
+                bottom_tray();
+            }
+        }
+        hang_foot_holes();
+    }
 }
 
 module tray_extras() {
@@ -567,14 +632,20 @@ module top_lid_print() {
 }
 
 module preview_assembly() {
-    color([0.18,0.22,0.28]) bottom_tray();
-    color([0.75,0.78,0.82], 0.92) top_lid_use();
+    color([0.18,0.22,0.28]) bottom_tray_use();
+    color([0.75,0.78,0.82], 0.92) {
+        if (face_on()) faced() top_lid_use();
+        else top_lid_use();
+    }
 }
 
 module build_part() {
-    if (C_PART == "bottom") bottom_tray();
+    if (C_PART == "bottom") bottom_tray_use();
     else if (C_PART == "top") top_lid_print();
-    else if (C_PART == "top_use") top_lid_use();
+    else if (C_PART == "top_use") {
+        if (face_on()) faced() top_lid_use();
+        else top_lid_use();
+    }
     else preview_assembly();
 }
 

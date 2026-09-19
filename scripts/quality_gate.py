@@ -307,6 +307,8 @@ def hang_xy(h, layout):
         return layout["cols"] * PITCH + WALL / 2, pos
     if side == "front":
         return pos, -WALL / 2
+    if side == "bottom":
+        return pos, layout["rows"] * PITCH - 8
     return pos, layout["rows"] * PITCH + WALL / 2
 
 
@@ -315,9 +317,13 @@ def designed_cutout_mask(layout, lib, xs, ys, z, wall_h_):
     mask = np.zeros(len(xs), dtype=bool)
     if z < wall_h_ - 0.2:
         zc = wall_h_ - 12
-        if abs(z - zc) < 14:
-            for h in hang_list(layout):
-                hx, hy = hang_xy(h, layout)
+        for h in hang_list(layout):
+            hx, hy = hang_xy(h, layout)
+            side = h.get("side") or "back"
+            if side == "bottom":
+                if z <= BOT + 4:
+                    mask |= (np.abs(xs - hx) <= 6) & (np.abs(ys - hy) <= 8)
+            elif abs(z - zc) < 14:
                 mask |= (np.abs(xs - hx) <= 6) & (np.abs(ys - hy) <= 8)
         for w in layout.get("walls") or []:
             d = lib.get(w["id"])

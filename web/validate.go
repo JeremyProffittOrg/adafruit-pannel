@@ -37,6 +37,9 @@ func validateLayout(l *Layout) error {
 	default:
 		return fmt.Errorf("edge must be round, chamfer, or square")
 	}
+	if l.FaceTilt < 0 || l.FaceTilt > 45 {
+		return fmt.Errorf("face tilt must be 0 to 45 degrees")
+	}
 	if len(l.Devices) > 64 || len(l.Walls) > 32 {
 		return fmt.Errorf("too many parts on this case")
 	}
@@ -97,9 +100,9 @@ func validateLayout(l *Layout) error {
 	}
 	for _, h := range l.Hangs {
 		switch h.Side {
-		case "left", "right", "front", "back":
+		case "left", "right", "front", "back", "bottom":
 		default:
-			return fmt.Errorf("hang side must be left, right, front, or back")
+			return fmt.Errorf("hang side must be left, right, front, back, or bottom")
 		}
 		switch h.Orient {
 		case "", "down", "up", "left", "right":

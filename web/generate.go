@@ -59,6 +59,7 @@ type Layout struct {
 	EdgeMM    float64      `json:"edge_mm"`
 	Hang      bool         `json:"hang"`
 	Overlap   bool         `json:"overlap"`
+	FaceTilt  float64      `json:"face_tilt"`
 	Hangs     []PlacedHang `json:"hangs"`
 	Devices   []PlacedDev  `json:"devices"`
 	Walls     []PlacedWall `json:"walls"`
@@ -138,6 +139,7 @@ func writeLayout(path, part string, l Layout) error {
 	hangs := effectiveHangs(l)
 	fmt.Fprintf(&b, "HANG = %d;\n", map[bool]int{true: 1, false: 0}[len(hangs) > 0])
 	fmt.Fprintf(&b, "OVERLAP = %d;\n", map[bool]int{true: 1, false: 0}[l.Overlap])
+	fmt.Fprintf(&b, "FACE_TILT = %.3f;\n", l.FaceTilt)
 	fmt.Fprintf(&b, "NHANG = %d;\n", len(hangs))
 	if len(hangs) > 0 {
 		b.WriteString("HANG_SIDE = [")
@@ -277,6 +279,13 @@ func lidBomItem(l Layout) string {
 	return "Lid (printed, face on bed, flush — no overlap)"
 }
 
+func trayBomItem(l Layout) string {
+	if l.FaceTilt > 0.05 {
+		return fmt.Sprintf("Bottom tray (printed, sitting face tilt %.0f deg)", l.FaceTilt)
+	}
+	return "Bottom tray (printed)"
+}
+
 func hangCount(l Layout) int {
 	return len(effectiveHangs(l))
 }
@@ -353,7 +362,7 @@ type bomLine struct {
 
 func bomLines(l Layout) []bomLine {
 	out := []bomLine{
-		{1, "Bottom tray (printed)", "print", ""},
+		{1, trayBomItem(l), "print", ""},
 		{1, lidBomItem(l), "print", ""},
 	}
 	if n := postCount(l); n > 0 {
@@ -409,7 +418,7 @@ func bomCSV(l Layout) string {
 func bomMarkdown(l Layout) string {
 	var b strings.Builder
 	b.WriteString("# Bill of materials\n\n")
-	fmt.Fprintf(&b, "Grid %d x %d. Inside height %.1f mm. Edge %s %.1f mm.\n\n", l.Cols, l.Rows, l.InnerH, l.EdgeStyle, l.EdgeMM)
+	fmt.Fprintf(&b, "Grid %d x %d. Inside height %.1f mm. Edge %s %.1f mm. Face tilt %.0f deg.\n\n", l.Cols, l.Rows, l.InnerH, l.EdgeStyle, l.EdgeMM, l.FaceTilt)
 	b.WriteString("| Qty | Item | Kind | Link |\n| ---: | --- | --- | --- |\n")
 	for _, row := range bomLines(l) {
 		link := ""

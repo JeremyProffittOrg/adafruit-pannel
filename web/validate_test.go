@@ -23,6 +23,25 @@ func TestZipFileName(t *testing.T) {
 	}
 }
 
+func TestValidateFaceTiltAndHangBottom(t *testing.T) {
+	l := Layout{
+		Cols: 5, Rows: 4, InnerH: 25, FaceTilt: 30,
+		Hangs: []PlacedHang{{Side: "bottom", Pos: 0, Orient: "down"}},
+	}
+	if err := validateLayout(&l); err != nil {
+		t.Fatal(err)
+	}
+	l.FaceTilt = 50
+	if err := validateLayout(&l); err == nil {
+		t.Fatal("want face tilt error")
+	}
+	l.FaceTilt = 30
+	l.Hangs[0].Side = "top"
+	if err := validateLayout(&l); err == nil {
+		t.Fatal("want hang side error")
+	}
+}
+
 func TestScrewLabel(t *testing.T) {
 	if screwLabel(2.1) != "M2x6 screw into PCB" {
 		t.Fatalf("2.1: %s", screwLabel(2.1))

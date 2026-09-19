@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=14">
+  <link rel="stylesheet" href="/style.css?v=15">
   <script type="importmap">
   {
     "imports": {
@@ -101,6 +101,17 @@
               </select>
             </td>
           </tr>
+          <tr>
+            <th><label for="facetilt" title="0 sits flat. 30 leans the lid 30 deg off the sitting foot. Add hang holes on the bottom, then hang that foot on the wall with the thick end up, to tilt a panel out from the wall.">Face tilt</label></th>
+            <td>
+              <select id="facetilt">
+                <option value="0" selected>flat (0°)</option>
+                <option value="15">15°</option>
+                <option value="30">30°</option>
+                <option value="45">45°</option>
+              </select>
+            </td>
+          </tr>
         </tbody>
         <tbody>
           <tr><th colspan="2" class="section">Row tilt (deg)</th></tr>
@@ -108,12 +119,13 @@
         <tbody id="tilts"></tbody>
       </table>
       <h2>Hang holes</h2>
-      <p class="legend">Keyholes through a wall. Slot direction is which way the case drops onto the screws.</p>
+      <p class="legend">Keyholes through a wall or the sitting foot. Slot direction is which way the case drops onto the screws. Face tilt plus bottom holes: hang the foot on the wall, thick end up, so the panel leans out.</p>
       <select id="hang-side">
         <option value="back">back</option>
         <option value="front">front</option>
         <option value="left">left</option>
         <option value="right">right</option>
+        <option value="bottom">bottom (foot)</option>
       </select>
       <select id="hang-orient">
         <option value="down">slot down</option>
@@ -191,7 +203,7 @@
       <span>Library</span>
     </button>
   </nav>
-  <script src="/app.js?v=14"></script>
-  <script type="module" src="/preview.js?v=14"></script>
+  <script src="/app.js?v=15"></script>
+  <script type="module" src="/preview.js?v=15"></script>
 </body>
 </html>

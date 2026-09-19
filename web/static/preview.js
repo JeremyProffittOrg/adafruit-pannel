@@ -54,6 +54,21 @@ function hasOverlap(l) {
 function lidEx(l) {
   return hasOverlap(l) ? EX : 0;
 }
+function faceDeg(l) {
+  const v = Number(l && l.face_tilt);
+  return Number.isFinite(v) ? v : 0;
+}
+function hangBottomY(l) {
+  return (l.rows || 1) * PITCH - 8;
+}
+function faceMatrix(deg) {
+  const a = (deg * Math.PI) / 180;
+  const m = new THREE.Matrix4();
+  const t1 = new THREE.Matrix4().makeTranslation(0, WALL, 0);
+  const r = new THREE.Matrix4().makeRotationX(a);
+  const t2 = new THREE.Matrix4().makeTranslation(0, -WALL, 0);
+  return m.multiply(t2).multiply(r).multiply(t1);
+}
 function hangOrientAngle(orient) {
   if (orient === "up") return Math.PI;
   if (orient === "left") return Math.PI / 2;
@@ -332,12 +347,13 @@ function build(l) {
       { side: "back", pos: 0, orient: "down" },
       { side: "back", pos: Math.max(0, cols - 1), orient: "down" },
     ]);
+  const cutMat = new THREE.MeshBasicMaterial({ color: CUT });
   if (hangList.length) {
-    const cutMat = new THREE.MeshBasicMaterial({ color: CUT });
     const zc = H - 12;
     for (const h of hangList) {
       const pos = (Number(h.pos) || 0) + 0.5;
       const orient = h.orient || "down";
+      if (h.side === "bottom") continue;
       if (h.side === "back" && trayRows[rows - 1]) {
         addHangMarker(trayRows[rows - 1], pos * PITCH, PITCH + WALL / 2, zc, 0, orient, cutMat);
       } else if (h.side === "front" && trayRows[0]) {
@@ -524,13 +540,44 @@ function build(l) {
     }
   }
 
-  if (viewMode === "bottom") g.add(tray);
+  const shell = new THREE.Group();
+  if (viewMode === "bottom") shell.add(tray);
   else if (viewMode === "top") {
     lid.position.z += 10;
-    g.add(lid);
+    shell.add(lid);
   } else {
-    g.add(tray);
-    g.add(lid);
+    shell.add(tray);
+    shell.add(lid);
+  }
+  const face = faceDeg(l);
+  if (Math.abs(face) > 0.05) {
+    const pivot = new THREE.Group();
+    pivot.position.set(0, -WALL, 0);
+    const inner = new THREE.Group();
+    inner.position.set(0, WALL, 0);
+    inner.add(shell);
+    pivot.rotation.x = (face * Math.PI) / 180;
+    pivot.add(inner);
+    g.add(pivot);
+    if (viewMode !== "top") {
+      const cw = cols * PITCH + 2 * WALL;
+      const cd = rows * PITCH + 2 * WALL;
+      box(g, cw, cd, BOT, cols * PITCH / 2, rows * PITCH / 2, BOT / 2);
+      const m0 = new THREE.Matrix4();
+      const m1 = faceMatrix(face);
+      hullBoxes(g, m0, [-WALL, -WALL, 0, WALL, cd, BOT], m1, [-WALL, -WALL, 0, WALL, cd, BOT], wallMat);
+      hullBoxes(g, m0, [cols * PITCH, -WALL, 0, WALL, cd, BOT], m1, [cols * PITCH, -WALL, 0, WALL, cd, BOT], wallMat);
+      hullBoxes(g, m0, [-WALL, rows * PITCH, 0, cw, WALL, BOT], m1, [-WALL, rows * PITCH, 0, cw, WALL, BOT], wallMat);
+    }
+  } else {
+    g.add(shell);
+  }
+  if (viewMode !== "top") {
+    for (const h of hangList) {
+      if (h.side !== "bottom") continue;
+      const pos = (Number(h.pos) || 0) + 0.5;
+      addHangMarker(g, pos * PITCH, hangBottomY(l), BOT / 2, 0, h.orient || "down", cutMat);
+    }
   }
   g.rotation.x = -Math.PI / 2;
   return g;

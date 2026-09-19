@@ -7,6 +7,7 @@ let layout = {
   edge_style: "round",
   edge_mm: 2,
   overlap: true,
+  face_tilt: 0,
   tilts: [0, 0, 0, 0],
   devices: [],
   walls: [],
@@ -41,6 +42,7 @@ function cloneLayout(src) {
   l.edge_style = l.edge_style || "round";
   l.edge_mm = numOr(l.edge_mm, 2);
   l.overlap = l.overlap !== false;
+  l.face_tilt = Math.max(0, Math.min(45, numOr(l.face_tilt, 0)));
   if (!Array.isArray(l.hangs)) {
     l.hangs = l.hang === false ? [] : defaultHangs(l.cols);
   }
@@ -275,6 +277,7 @@ function syncSize() {
   layout.edge_style = $("edge")?.value || "round";
   layout.edge_mm = numOr($("edgemm")?.value, 2);
   layout.overlap = $("overlap") ? $("overlap").value !== "no" : true;
+  layout.face_tilt = $("facetilt") ? numOr($("facetilt").value, 0) : 0;
   clipDevices();
   renderTilts();
   renderGrid();
@@ -291,6 +294,20 @@ function setOverlap(on) {
   if ($("overlap")) $("overlap").value = on ? "yes" : "no";
 }
 
+function setFaceTilt(deg) {
+  const n = Math.max(0, Math.min(45, numOr(deg, 0)));
+  const el = $("facetilt");
+  if (!el) return;
+  const s = String(n);
+  if (![...el.options].some((o) => o.value === s)) {
+    const opt = document.createElement("option");
+    opt.value = s;
+    opt.textContent = `${n}°`;
+    el.appendChild(opt);
+  }
+  el.value = s;
+}
+
 function clearNotes() {
   if ($("notelist")) $("notelist").innerHTML = "";
   if ($("notetext")) $("notetext").value = "";
@@ -302,6 +319,7 @@ $("inner").addEventListener("input", syncSize);
 $("edge").addEventListener("change", syncSize);
 $("edgemm").addEventListener("input", syncSize);
 $("overlap")?.addEventListener("change", syncSize);
+$("facetilt")?.addEventListener("change", syncSize);
 $("devfilter").addEventListener("input", fillDevices);
 $("add-wall").addEventListener("click", () => {
   layout.walls.push({
@@ -329,9 +347,10 @@ $("preset-sq").addEventListener("click", () => {
   $("inner").value = 25;
   setEdgeInputs("round", 2);
   setOverlap(true);
+  setFaceTilt(0);
   clearNotes();
   layout = {
-    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, tilts: [0, 0, 0, 0], walls: [],
+    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilts: [0, 0, 0, 0], walls: [],
     hangs: defaultHangs(5),
     devices: [
       { id: "neoslider", c: 0, r: 0 },
@@ -353,9 +372,10 @@ $("preset-tilt").addEventListener("click", () => {
   $("inner").value = 25;
   setEdgeInputs("round", 2);
   setOverlap(true);
+  setFaceTilt(0);
   clearNotes();
   layout = {
-    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true,
+    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0,
     tilts: [0, 0, 0, 30, 30, -30],
     devices: [],
     walls: [],
@@ -411,7 +431,13 @@ function renderBOM() {
   if (!tb) return;
   tb.innerHTML = "";
   const lines = [];
-  lines.push({ qty: 1, item: "Bottom tray (printed)", url: "" });
+  lines.push({
+    qty: 1,
+    item: (layout.face_tilt || 0) > 0.05
+      ? `Bottom tray (printed, sitting face tilt ${Number(layout.face_tilt)} deg)`
+      : "Bottom tray (printed)",
+    url: "",
+  });
   lines.push({
     qty: 1,
     item: layout.overlap !== false
@@ -494,6 +520,7 @@ function applyCase(rec) {
   $("inner").value = layout.inner_h;
   setEdgeInputs(layout.edge_style, layout.edge_mm);
   setOverlap(layout.overlap !== false);
+  setFaceTilt(layout.face_tilt);
   syncSize();
   renderWalls();
   renderHangs();
@@ -510,7 +537,8 @@ function resetOpenCase() {
   $("inner").value = 25;
   setEdgeInputs("round", 2);
   setOverlap(true);
-  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
+  setFaceTilt(0);
+  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
   syncSize();
   renderWalls();
   renderHangs();

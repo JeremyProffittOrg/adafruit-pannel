@@ -61,6 +61,59 @@ func TestBuildZipIncludesCad(t *testing.T) {
 	if !bytes.Contains([]byte(scad), []byte("OVERLAP = 1;")) {
 		t.Fatalf("job scad missing OVERLAP = 1:\n%s", scad)
 	}
+	if !bytes.Contains([]byte(scad), []byte("FACE_TILT = 0.000;")) {
+		t.Fatalf("job scad missing FACE_TILT = 0.000:\n%s", scad)
+	}
+}
+
+func TestFaceTiltBottomHangZip(t *testing.T) {
+	if err := loadCatalog(".."); err != nil {
+		t.Fatal(err)
+	}
+	body, err := buildZipBytes(Layout{
+		Title: "wall 30",
+		Cols:  4, Rows: 3, InnerH: 25,
+		EdgeStyle: "round", EdgeMM: 2, Overlap: true,
+		FaceTilt: 30,
+		Tilts:    []float64{0, 0, 0},
+		Hangs: []PlacedHang{
+			{Side: "bottom", Pos: 0, Orient: "down"},
+			{Side: "bottom", Pos: 3, Orient: "down"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	scad := ""
+	md := ""
+	for _, f := range zr.File {
+		r, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		b := new(bytes.Buffer)
+		_, _ = b.ReadFrom(r)
+		r.Close()
+		if f.Name == "cad/generated/job-bottom.scad" {
+			scad = b.String()
+		}
+		if f.Name == "BOM.md" {
+			md = b.String()
+		}
+	}
+	if !bytes.Contains([]byte(scad), []byte("FACE_TILT = 30.000;")) {
+		t.Fatalf("job scad missing FACE_TILT = 30:\n%s", scad)
+	}
+	if !bytes.Contains([]byte(scad), []byte(`"bottom"`)) {
+		t.Fatalf("job scad missing hang side bottom:\n%s", scad)
+	}
+	if !bytes.Contains([]byte(md), []byte("sitting face tilt 30 deg")) {
+		t.Fatalf("BOM missing face tilt: %s", md)
+	}
 }
 
 func TestBomDefaultsEdge(t *testing.T) {
