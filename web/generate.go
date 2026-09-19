@@ -63,6 +63,7 @@ type Layout struct {
 	EdgeMM    float64      `json:"edge_mm"`
 	Hang      bool         `json:"hang"`
 	Overlap   bool         `json:"overlap"`
+	AutoSize  bool         `json:"auto_size"`
 	FaceTilt  float64      `json:"face_tilt"`
 	Hangs     []PlacedHang `json:"hangs"`
 	Devices   []PlacedDev  `json:"devices"`

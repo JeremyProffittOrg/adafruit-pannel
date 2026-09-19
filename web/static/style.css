@@ -236,35 +236,97 @@ button.primary {
   text-transform: uppercase;
 }
 button.primary:hover { background: #22d3ee; }
-#grid { display: grid; gap: 3px; margin-top: 8px; }
+#grid {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #02080d;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.05), rgba(34, 211, 238, 0.05));
+  border: 1px solid #22d3ee;
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.5), 0 0 16px rgba(34, 211, 238, 0.12);
+  user-select: none;
+  touch-action: none;
+}
 .cell {
-  min-width: 36px;
-  min-height: 40px;
-  border: 1px solid #d4a054;
-  background: #0a2430;
-  font-size: 11px;
-  padding: 4px;
+  aspect-ratio: 1;
+  min-width: 28px;
+  min-height: 28px;
+  border: 1px dashed rgba(31, 111, 122, 0.85);
+  background: rgba(10, 36, 48, 0.55);
   cursor: pointer;
-  color: #e6f4ff;
-  text-align: left;
+  color: #9ec4d8;
+}
+.cell.grow {
+  border-style: dotted;
+  background: rgba(8, 22, 30, 0.35);
+  opacity: 0.7;
+}
+.cell.drop-ok {
+  background: rgba(34, 211, 238, 0.22);
+  border-color: #7df9ff;
+  border-style: solid;
+}
+.part {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  cursor: grab;
+  color: #e6f4ff;
+  background: linear-gradient(180deg, #155e75 0%, #0e3a48 100%);
+  border: 1px solid #22d3ee;
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.18);
 }
-.cell.on, .cell.bottom { cursor: grab; }
-.cell.on { background: #155e75; color: #e6f4ff; border-color: #22d3ee; }
-.cell.bottom { background: #7c4a12; color: #fff7ed; border-color: #f59e0b; }
-.cell-name { display: block; font-size: 10px; line-height: 1.2; }
-.cell-actions { display: flex; gap: 2px; flex-wrap: wrap; }
-.cell-actions button {
-  font-size: 10px;
-  padding: 1px 5px;
+.part.bottom {
+  background: linear-gradient(180deg, #9a5b14 0%, #7c4a12 100%);
+  border-color: #f59e0b;
+}
+.part:hover, .part:focus-within {
+  border-color: #7df9ff;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.4);
+}
+.part.dragging { opacity: 0.4; cursor: grabbing; }
+.part svg { flex: 1 1 auto; width: 100%; min-height: 0; pointer-events: none; }
+.glyph-pcb { fill: #166534; fill-opacity: 0.7; }
+.part.bottom .glyph-pcb { fill: #78350f; }
+.glyph-cut { fill: #07131c; stroke: #7df9ff; stroke-width: 0.7; }
+.part.bottom .glyph-cut { stroke: #fcd34d; }
+.part-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3px 8px 5px;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  background: rgba(4, 16, 22, 0.55);
+  pointer-events: none;
+}
+.part-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+}
+.part:hover .part-actions, .part:focus-within .part-actions { opacity: 1; }
+.part-actions button {
+  font-size: 11px;
+  padding: 2px 6px;
   margin: 0;
   letter-spacing: 0;
   text-transform: none;
+  background: #061018;
 }
-.cell.drop-target, #view3d.drop-over, #grid.drop-over {
+#view3d.drop-over, #grid.drop-over {
   outline: 2px solid #22d3ee;
   outline-offset: 1px;
 }

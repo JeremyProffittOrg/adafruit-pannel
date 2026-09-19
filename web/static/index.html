@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=22">
+  <link rel="stylesheet" href="/style.css?v=23">
   <script type="importmap">
   {
     "imports": {
@@ -73,12 +73,18 @@
             <td><input id="casetitle" placeholder="name this case"></td>
           </tr>
           <tr>
+            <th><label for="autosize" title="When checked, columns and rows follow the parts. Uncheck to set the grid by hand.">Auto columns and rows</label></th>
+            <td>
+              <input id="autosize" type="checkbox" checked>
+            </td>
+          </tr>
+          <tr>
             <th><label for="cols">Columns</label></th>
-            <td><input id="cols" type="number" min="1" max="16" value="5"></td>
+            <td><input id="cols" type="number" min="1" max="16" value="5" disabled></td>
           </tr>
           <tr>
             <th><label for="rows">Rows</label></th>
-            <td><input id="rows" type="number" min="1" max="16" value="4"></td>
+            <td><input id="rows" type="number" min="1" max="16" value="4" disabled></td>
           </tr>
           <tr>
             <th><label for="inner">Inside mm</label></th>
@@ -197,7 +203,7 @@
       </p>
       <div id="view3d"></div>
       <h2>Top layout</h2>
-      <p class="legend">Add a part with Add device, or drag it onto the 3D view or this grid. The case grows if the part needs more cells. On a placed part: drag to move, dup to copy, remove to delete.</p>
+      <p class="legend">Drag parts on this board or onto the 3D view. Auto size fits columns and rows to the parts. Hover a part to duplicate or remove it.</p>
       <div id="grid"></div>
     </section>
   </main>
@@ -205,7 +211,7 @@
     <a href="/privacy.html">Privacy</a>
     <span>M3 from below into lid pegs. Lid prints face-down.</span>
   </footer>
-  <script src="/app.js?v=22"></script>
-  <script type="module" src="/preview.js?v=22"></script>
+  <script src="/app.js?v=23"></script>
+  <script type="module" src="/preview.js?v=23"></script>
 </body>
 </html>

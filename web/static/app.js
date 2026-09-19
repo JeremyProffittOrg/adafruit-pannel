@@ -7,6 +7,7 @@ let layout = {
   edge_style: "round",
   edge_mm: 2,
   overlap: true,
+  auto_size: true,
   face_tilt: 0,
   tilt_axis: "flat",
   tilts: [0, 0, 0, 0],
@@ -43,6 +44,7 @@ function cloneLayout(src) {
   l.edge_style = l.edge_style || "round";
   l.edge_mm = numOr(l.edge_mm, 2);
   l.overlap = l.overlap !== false;
+  l.auto_size = l.auto_size !== false;
   l.face_tilt = Math.max(0, Math.min(45, numOr(l.face_tilt, 0)));
   if (l.tilt_axis !== "row" && l.tilt_axis !== "col") l.tilt_axis = "flat";
   if (!Array.isArray(l.hangs)) {
@@ -141,6 +143,8 @@ function firstFit(dx, dy, skip) {
 }
 
 function refreshLayout(msg) {
+  fitAutoSize();
+  renderTilts();
   renderGrid();
   bumpPreview();
   renderBOM();
@@ -163,8 +167,10 @@ function placeDevice(id, c, r, skip) {
   const dy = def.cells_y || 1;
   c = Math.max(0, c | 0);
   r = Math.max(0, r | 0);
-  if (c + dx > layout.cols && c < layout.cols) c = Math.max(0, layout.cols - dx);
-  if (r + dy > layout.rows && r < layout.rows) r = Math.max(0, layout.rows - dy);
+  if (!layout.auto_size) {
+    if (c + dx > layout.cols && c < layout.cols) c = Math.max(0, layout.cols - dx);
+    if (r + dy > layout.rows && r < layout.rows) r = Math.max(0, layout.rows - dy);
+  }
   if (!ensureGrid(c, r, dx, dy)) {
     if ($("status")) $("status").textContent = `${def.name} needs ${dx} x ${dy} cells (max 16).`;
     return false;
@@ -312,64 +318,284 @@ function renderTilts() {
   }
 }
 
+function updateSizeLock() {
+  const on = !!layout.auto_size;
+  if ($("autosize")) $("autosize").checked = on;
+  if ($("cols")) $("cols").disabled = on;
+  if ($("rows")) $("rows").disabled = on;
+}
+
+function deviceBounds() {
+  let maxC = 0;
+  let maxR = 0;
+  let any = false;
+  for (const d of layout.devices) {
+    const def = byId[d.id];
+    if (!def) continue;
+    any = true;
+    maxC = Math.max(maxC, d.c + (def.cells_x || 1));
+    maxR = Math.max(maxR, d.r + (def.cells_y || 1));
+  }
+  return { any, maxC: Math.max(1, maxC), maxR: Math.max(1, maxR) };
+}
+
+function fitAutoSize() {
+  if (!layout.auto_size) {
+    updateSizeLock();
+    return;
+  }
+  const b = deviceBounds();
+  if (b.any) {
+    layout.cols = Math.min(16, Math.max(1, b.maxC));
+    layout.rows = Math.min(16, Math.max(1, b.maxR));
+  } else {
+    layout.cols = Math.min(16, Math.max(1, layout.cols || 4));
+    layout.rows = Math.min(16, Math.max(1, layout.rows || 4));
+  }
+  if ($("cols")) $("cols").value = layout.cols;
+  if ($("rows")) $("rows").value = layout.rows;
+  padTilts();
+  updateSizeLock();
+}
+
+function gridDims() {
+  const grow = layout.auto_size && layout.cols < 16 && layout.rows < 16 ? 1 : 0;
+  return {
+    cols: Math.min(16, layout.cols + (layout.auto_size && layout.cols < 16 ? 1 : 0)),
+    rows: Math.min(16, layout.rows + (layout.auto_size && layout.rows < 16 ? 1 : 0)),
+    grow,
+  };
+}
+
+function shortName(def) {
+  let n = (def && (def.name || def.id)) || "part";
+  n = n.replace(/^Adafruit\s+/i, "");
+  n = n.replace(/\s*\([^)]*\)\s*$/, "");
+  return n || "part";
+}
+
+function svgEl(name, attrs) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+  return el;
+}
+
+function partGlyph(def) {
+  const dx = def.cells_x || 1;
+  const dy = def.cells_y || 1;
+  const W = dx * 25.4;
+  const H = dy * 25.4;
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, "aria-hidden": "true" });
+  const cx = W / 2;
+  const cy = H / 2;
+  if (def.pcb_mm && def.pcb_mm.length >= 2) {
+    const pw = def.pcb_mm[0];
+    const ph = def.pcb_mm[1];
+    svg.appendChild(svgEl("rect", {
+      x: cx - pw / 2, y: cy - ph / 2, width: pw, height: ph, rx: 1.2, class: "glyph-pcb",
+    }));
+  }
+  for (const cut of def.cutouts || []) {
+    const x = cx + (cut.x || 0);
+    const y = cy - (cut.y || 0);
+    if (cut.type === "hole") {
+      svg.appendChild(svgEl("circle", { cx: x, cy: y, r: (cut.d || 8) / 2, class: "glyph-cut" }));
+    } else if (cut.type === "slot") {
+      const w = cut.w || 4;
+      const l = cut.l || 20;
+      svg.appendChild(svgEl("rect", {
+        x: x - w / 2, y: y - l / 2, width: w, height: l, rx: Math.min(w, l) / 2, class: "glyph-cut",
+      }));
+    } else if (cut.type === "window") {
+      svg.appendChild(svgEl("rect", {
+        x: x - (cut.w || 20) / 2, y: y - (cut.h || 12) / 2,
+        width: cut.w || 20, height: cut.h || 12, rx: 1, class: "glyph-cut",
+      }));
+    } else if (cut.type === "grill") {
+      const gw = cut.w || 12;
+      for (const gy of [-3, 0, 3]) {
+        svg.appendChild(svgEl("rect", {
+          x: x - gw / 2, y: y + gy - 0.8, width: gw, height: 1.6, rx: 0.4, class: "glyph-cut",
+        }));
+      }
+    }
+  }
+  return svg;
+}
+
+function cellFromPoint(x, y) {
+  const g = $("grid");
+  if (!g) return null;
+  const vis = gridDims();
+  if (vis.cols < 1 || vis.rows < 1) return null;
+  const rec = g.getBoundingClientRect();
+  const style = getComputedStyle(g);
+  const padL = parseFloat(style.paddingLeft) || 0;
+  const padT = parseFloat(style.paddingTop) || 0;
+  const padR = parseFloat(style.paddingRight) || 0;
+  const padB = parseFloat(style.paddingBottom) || 0;
+  const gap = parseFloat(style.columnGap || style.gap) || 0;
+  const innerW = rec.width - padL - padR;
+  const innerH = rec.height - padT - padB;
+  const cellW = (innerW - gap * Math.max(0, vis.cols - 1)) / vis.cols;
+  const cellH = (innerH - gap * Math.max(0, vis.rows - 1)) / vis.rows;
+  if (cellW <= 1 || cellH <= 1) return null;
+  const c = Math.floor((x - rec.left - padL) / (cellW + gap));
+  const r = Math.floor((y - rec.top - padT) / (cellH + gap));
+  if (c < 0 || r < 0 || c >= vis.cols || r >= vis.rows) return null;
+  return { c, r };
+}
+
+function clearDropHint() {
+  $("grid")?.querySelectorAll(".drop-ok").forEach((el) => el.classList.remove("drop-ok"));
+}
+
+function showDropHint(c, r, dx, dy) {
+  clearDropHint();
+  if (c == null) return;
+  const g = $("grid");
+  if (!g) return;
+  for (let y = 0; y < dy; y++) {
+    for (let x = 0; x < dx; x++) {
+      const el = g.querySelector(`.cell[data-c="${c + x}"][data-r="${r + y}"]`);
+      if (el) el.classList.add("drop-ok");
+    }
+  }
+}
+
+let liveDrag = null;
+
+function dragFootprint(e) {
+  if (liveDrag) return liveDrag;
+  const { placed, catalog } = dropPayload(e);
+  if (placed !== "") {
+    const d = layout.devices[Number(placed)];
+    const def = d && byId[d.id];
+    if (def) return { dx: def.cells_x || 1, dy: def.cells_y || 1 };
+  }
+  if (catalog && catalog !== "empty") {
+    const def = byId[catalog];
+    if (def) return { dx: def.cells_x || 1, dy: def.cells_y || 1 };
+  }
+  return { dx: 1, dy: 1 };
+}
+
+let boardDrag = null;
+let skipClick = false;
+
+function endBoardDrag(apply, ev) {
+  const drag = boardDrag;
+  boardDrag = null;
+  clearDropHint();
+  document.querySelectorAll(".part.dragging").forEach((el) => el.classList.remove("dragging"));
+  if (!apply || !drag || !ev) return;
+  skipClick = true;
+  const at = cellFromPoint(ev.clientX, ev.clientY);
+  if (!at) return;
+  if (drag.kind === "placed") {
+    const d = layout.devices[drag.index];
+    if (d) placeDevice(d.id, at.c, at.r, d);
+    return;
+  }
+  if (drag.id) placeDevice(drag.id, at.c, at.r);
+}
+
 function renderGrid() {
   const g = $("grid");
   if (!g) return;
-  g.style.gridTemplateColumns = `repeat(${layout.cols}, 1fr)`;
+  const vis = gridDims();
+  g.style.gridTemplateColumns = `repeat(${vis.cols}, minmax(28px, 1fr))`;
+  g.style.gridTemplateRows = `repeat(${vis.rows}, minmax(28px, 1fr))`;
   g.innerHTML = "";
-  const occ = occMap();
-  for (let r = 0; r < layout.rows; r++) {
-    for (let c = 0; c < layout.cols; c++) {
+  for (let r = 0; r < vis.rows; r++) {
+    for (let c = 0; c < vis.cols; c++) {
       const el = document.createElement("div");
       el.className = "cell";
+      if (c >= layout.cols || r >= layout.rows) el.classList.add("grow");
+      el.style.gridColumn = String(c + 1);
+      el.style.gridRow = String(r + 1);
       el.dataset.c = String(c);
       el.dataset.r = String(r);
-      const hit = occ[`${c},${r}`];
-      if (hit) {
-        el.classList.add(byId[hit.id]?.place === "bottom" ? "bottom" : "on");
-        el.setAttribute("aria-label", `${byId[hit.id]?.name || hit.id} at column ${c} row ${r}`);
-        if (hit.c === c && hit.r === r) {
-          const name = document.createElement("span");
-          name.className = "cell-name";
-          name.textContent = byId[hit.id]?.name || hit.id;
-          el.appendChild(name);
-          const actions = document.createElement("span");
-          actions.className = "cell-actions";
-          const dup = document.createElement("button");
-          dup.type = "button";
-          dup.textContent = "dup";
-          dup.title = "Duplicate";
-          dup.addEventListener("click", (e) => {
-            e.stopPropagation();
-            duplicatePlaced(hit);
-          });
-          const rm = document.createElement("button");
-          rm.type = "button";
-          rm.textContent = "remove";
-          rm.title = "Remove";
-          rm.addEventListener("click", (e) => {
-            e.stopPropagation();
-            removePlaced(hit);
-          });
-          actions.appendChild(dup);
-          actions.appendChild(rm);
-          el.appendChild(actions);
-          el.draggable = true;
-          el.addEventListener("dragstart", (e) => {
-            const i = layout.devices.indexOf(hit);
-            e.dataTransfer.setData("application/x-panel-placed", String(i));
-            e.dataTransfer.setData("text/plain", hit.id);
-            e.dataTransfer.effectAllowed = "copyMove";
-          });
+      el.setAttribute("aria-label", `cell column ${c} row ${r}`);
+      el.addEventListener("click", () => {
+        if (skipClick) {
+          skipClick = false;
+          return;
         }
-      } else {
-        el.textContent = `${c},${r}`;
-        el.setAttribute("aria-label", `empty cell column ${c} row ${r}`);
-        el.addEventListener("click", () => stamp(c, r));
-      }
+        stamp(c, r);
+      });
       g.appendChild(el);
     }
   }
+  layout.devices.forEach((hit, i) => {
+    const def = byId[hit.id];
+    if (!def) return;
+    const dx = def.cells_x || 1;
+    const dy = def.cells_y || 1;
+    const el = document.createElement("div");
+    el.className = "part" + (def.place === "bottom" ? " bottom" : "");
+    el.style.gridColumn = `${hit.c + 1} / span ${dx}`;
+    el.style.gridRow = `${hit.r + 1} / span ${dy}`;
+    el.draggable = true;
+    el.tabIndex = 0;
+    el.setAttribute("aria-label", `${shortName(def)} at column ${hit.c} row ${hit.r}`);
+    el.appendChild(partGlyph(def));
+    const name = document.createElement("span");
+    name.className = "part-name";
+    name.textContent = shortName(def);
+    el.appendChild(name);
+    const actions = document.createElement("span");
+    actions.className = "part-actions";
+    const dup = document.createElement("button");
+    dup.type = "button";
+    dup.textContent = "dup";
+    dup.title = "Duplicate";
+    dup.addEventListener("click", (e) => {
+      e.stopPropagation();
+      duplicatePlaced(hit);
+    });
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.textContent = "remove";
+    rm.title = "Remove";
+    rm.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removePlaced(hit);
+    });
+    actions.appendChild(dup);
+    actions.appendChild(rm);
+    el.appendChild(actions);
+    el.addEventListener("dragstart", (e) => {
+      if (boardDrag && boardDrag.moved) {
+        e.preventDefault();
+        return;
+      }
+      boardDrag = null;
+      liveDrag = { dx, dy };
+      e.dataTransfer.setData("application/x-panel-placed", String(i));
+      e.dataTransfer.setData("text/plain", hit.id);
+      e.dataTransfer.effectAllowed = "copyMove";
+      el.classList.add("dragging");
+    });
+    el.addEventListener("dragend", () => {
+      liveDrag = null;
+      el.classList.remove("dragging");
+      clearDropHint();
+    });
+    el.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest("button")) return;
+      boardDrag = {
+        kind: "placed",
+        index: i,
+        id: hit.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false,
+      };
+    });
+    g.appendChild(el);
+  });
 }
 
 function stamp(c, r) {
@@ -487,14 +713,20 @@ function renderHangs() {
 }
 
 function syncSize() {
-  layout.cols = numOr($("cols").value, 1);
-  layout.rows = numOr($("rows").value, 1);
+  layout.auto_size = $("autosize") ? $("autosize").checked : true;
+  if (!layout.auto_size) {
+    layout.cols = numOr($("cols").value, 1);
+    layout.rows = numOr($("rows").value, 1);
+    clipDevices();
+  } else {
+    fitAutoSize();
+  }
   layout.inner_h = numOr($("inner").value, 25);
   layout.edge_style = $("edge")?.value || "round";
   layout.edge_mm = numOr($("edgemm")?.value, 2);
   layout.overlap = $("overlap") ? $("overlap").checked : true;
   layout.face_tilt = $("facetilt") ? numOr($("facetilt").value, 0) : 0;
-  clipDevices();
+  updateSizeLock();
   renderTilts();
   renderGrid();
   bumpPreview();
@@ -529,6 +761,7 @@ function clearNotes() {
   if ($("notetext")) $("notetext").value = "";
 }
 
+$("autosize")?.addEventListener("change", syncSize);
 $("cols").addEventListener("input", syncSize);
 $("rows").addEventListener("input", syncSize);
 $("inner").addEventListener("input", syncSize);
@@ -570,9 +803,15 @@ $("add-dev")?.addEventListener("click", () => addSelectedDevice());
 $("device")?.addEventListener("dblclick", () => addSelectedDevice());
 $("devdrag")?.addEventListener("dragstart", (e) => {
   const id = $("device")?.value || "";
+  const sz = partSize(id);
+  liveDrag = { dx: sz.dx, dy: sz.dy };
   e.dataTransfer.setData("application/x-panel-device", id);
   e.dataTransfer.setData("text/plain", id);
   e.dataTransfer.effectAllowed = "copy";
+});
+$("devdrag")?.addEventListener("dragend", () => {
+  liveDrag = null;
+  clearDropHint();
 });
 
 function dropPayload(e) {
@@ -597,13 +836,22 @@ function bindDropTarget(el, from3d) {
   el.addEventListener("dragover", (e) => {
     e.preventDefault();
     el.classList.add("drop-over");
+    if (!from3d) {
+      const at = cellFromPoint(e.clientX, e.clientY);
+      const fp = dragFootprint(e);
+      if (at) showDropHint(at.c, at.r, fp.dx, fp.dy);
+    }
   });
   el.addEventListener("dragleave", (e) => {
-    if (!el.contains(e.relatedTarget)) el.classList.remove("drop-over");
+    if (!el.contains(e.relatedTarget)) {
+      el.classList.remove("drop-over");
+      if (!from3d) clearDropHint();
+    }
   });
   el.addEventListener("drop", (e) => {
     e.preventDefault();
     el.classList.remove("drop-over");
+    clearDropHint();
     if (from3d) {
       const at = window.PANEL_CELL_AT && window.PANEL_CELL_AT(e.clientX, e.clientY);
       if (!at) {
@@ -613,13 +861,39 @@ function bindDropTarget(el, from3d) {
       handleDropAt(at.c, at.r, e);
       return;
     }
-    const cell = e.target.closest(".cell");
-    if (!cell) return;
-    handleDropAt(Number(cell.dataset.c), Number(cell.dataset.r), e);
+    const at = cellFromPoint(e.clientX, e.clientY);
+    if (!at) return;
+    handleDropAt(at.c, at.r, e);
   });
 }
 bindDropTarget($("grid"), false);
 bindDropTarget($("view3d"), true);
+
+document.addEventListener("pointermove", (e) => {
+  if (!boardDrag || boardDrag.kind !== "placed") return;
+  const dx = e.clientX - boardDrag.startX;
+  const dy = e.clientY - boardDrag.startY;
+  if (!boardDrag.moved) {
+    if (dx * dx + dy * dy < 36) return;
+    boardDrag.moved = true;
+    const g = $("grid");
+    const part = g && g.querySelectorAll(".part")[boardDrag.index];
+    if (part) {
+      part.classList.add("dragging");
+      try { part.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    }
+  }
+  const at = cellFromPoint(e.clientX, e.clientY);
+  const d = layout.devices[boardDrag.index];
+  const def = d && byId[d.id];
+  showDropHint(at && at.c, at && at.r, (def && def.cells_x) || 1, (def && def.cells_y) || 1);
+});
+document.addEventListener("pointerup", (e) => {
+  if (!boardDrag) return;
+  const apply = boardDrag.moved;
+  endBoardDrag(apply, e);
+});
+document.addEventListener("pointercancel", () => endBoardDrag(false));
 
 $("add-hang")?.addEventListener("click", () => {
   if (!Array.isArray(layout.hangs)) layout.hangs = [];
@@ -642,7 +916,7 @@ $("preset-sq").addEventListener("click", () => {
   setFaceTilt(0);
   clearNotes();
   layout = {
-    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], walls: [],
+    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], walls: [],
     hangs: defaultHangs(5),
     devices: [
       { id: "neoslider", c: 0, r: 0 },
@@ -652,6 +926,7 @@ $("preset-sq").addEventListener("click", () => {
       { id: "quad_rotary", c: 4, r: 0 },
     ],
   };
+  updateSizeLock();
   syncSize();
   renderHangs();
 });
@@ -667,12 +942,13 @@ $("preset-tilt").addEventListener("click", () => {
   setFaceTilt(0);
   clearNotes();
   layout = {
-    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilt_axis: "row",
+    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 0, tilt_axis: "row",
     tilts: [0, 0, 0, 30, 30, -30],
     devices: [],
     walls: [],
     hangs: defaultHangs(4),
   };
+  updateSizeLock();
   syncSize();
   renderHangs();
 });
@@ -844,6 +1120,7 @@ function applyCase(rec) {
   $("casetitle").value = rec.title || "";
   if ($("folder")) $("folder").value = rec.folder_id || "";
   layout = cloneLayout(rec.layout);
+  updateSizeLock();
   $("cols").value = layout.cols;
   $("rows").value = layout.rows;
   $("inner").value = layout.inner_h;
@@ -867,7 +1144,8 @@ function resetOpenCase() {
   setEdgeInputs("round", 2);
   setOverlap(true);
   setFaceTilt(0);
-  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
+  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
+  updateSizeLock();
   syncSize();
   renderWalls();
   renderHangs();
