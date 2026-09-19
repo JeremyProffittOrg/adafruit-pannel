@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=17">
+  <link rel="stylesheet" href="/style.css?v=19">
   <script type="importmap">
   {
     "imports": {
@@ -157,13 +157,17 @@
       </p>
       <div id="view3d"></div>
       <h2>Top layout</h2>
-      <p>Pick a device, click the cell for its top-left. The 3D view updates with the case.</p>
+      <p class="legend">Add a part with Add device, or drag it onto the 3D view or this grid. The case grows if the part needs more cells. On a placed part: drag to move, dup to copy, remove to delete.</p>
       <div id="grid"></div>
     </section>
     <section class="col" id="pane-parts">
       <h2>Device</h2>
       <label>Filter <input id="devfilter" placeholder="name or brand" type="search"></label>
       <select id="device" size="16"></select>
+      <p>
+        <button type="button" id="add-dev" class="primary">Add device</button>
+        <button type="button" id="devdrag" draggable="true" title="Drag onto the 3D view or the grid">Drag onto 3D or grid</button>
+      </p>
       <p id="devinfo"></p>
       <p><a id="devurl" href="#" target="_blank" rel="noopener" hidden>Manufacturer page</a></p>
       <h2>Cases with this part</h2>
@@ -204,7 +208,7 @@
       <span>Library</span>
     </button>
   </nav>
-  <script src="/app.js?v=17"></script>
-  <script type="module" src="/preview.js?v=17"></script>
+  <script src="/app.js?v=19"></script>
+  <script type="module" src="/preview.js?v=19"></script>
 </body>
 </html>

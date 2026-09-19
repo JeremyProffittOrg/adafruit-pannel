@@ -84,6 +84,165 @@ function occMap() {
   return m;
 }
 
+function partSize(id) {
+  const def = byId[id];
+  return { dx: (def && def.cells_x) || 1, dy: (def && def.cells_y) || 1, def };
+}
+
+function overlapsOther(c, r, dx, dy, skip) {
+  for (const d of layout.devices) {
+    if (d === skip) continue;
+    const dd = byId[d.id];
+    if (!dd) continue;
+    if (c < d.c + dd.cells_x && c + dx > d.c && r < d.r + dd.cells_y && r + dy > d.r) return true;
+  }
+  return false;
+}
+
+function ensureGrid(c, r, dx, dy) {
+  if (c < 0 || r < 0) return false;
+  const needC = c + dx;
+  const needR = r + dy;
+  if (needC > 16 || needR > 16) return false;
+  let grew = false;
+  if (needC > layout.cols) {
+    layout.cols = needC;
+    if ($("cols")) $("cols").value = layout.cols;
+    grew = true;
+  }
+  if (needR > layout.rows) {
+    layout.rows = needR;
+    if ($("rows")) $("rows").value = layout.rows;
+    grew = true;
+  }
+  if (grew) {
+    while (layout.tilts.length < layout.rows) layout.tilts.push(0);
+    layout.tilts.length = layout.rows;
+    renderTilts();
+  }
+  return true;
+}
+
+function firstFit(dx, dy, skip) {
+  for (let r = 0; r < layout.rows; r++) {
+    for (let c = 0; c <= layout.cols - dx; c++) {
+      if (r + dy <= layout.rows && !overlapsOther(c, r, dx, dy, skip)) return { c, r };
+    }
+  }
+  if (layout.cols + dx <= 16 && layout.rows >= dy && !overlapsOther(layout.cols, 0, dx, dy, skip)) {
+    return { c: layout.cols, r: 0 };
+  }
+  if (layout.rows + dy <= 16 && !overlapsOther(0, layout.rows, dx, dy, skip)) {
+    return { c: 0, r: layout.rows };
+  }
+  if (layout.cols + dx <= 16) return { c: layout.cols, r: 0 };
+  return null;
+}
+
+function refreshLayout(msg) {
+  renderGrid();
+  bumpPreview();
+  renderBOM();
+  if (msg && $("status")) $("status").textContent = msg;
+}
+
+function canPlaceId(id) {
+  const def = byId[id];
+  if (!def || def.id === "empty" || def.place === "wall" || def.place === "none") return null;
+  return def;
+}
+
+function placeDevice(id, c, r, skip) {
+  const def = canPlaceId(id);
+  if (!def) {
+    if ($("status")) $("status").textContent = "Pick a lid or floor part first.";
+    return false;
+  }
+  const dx = def.cells_x || 1;
+  const dy = def.cells_y || 1;
+  c = Math.max(0, c | 0);
+  r = Math.max(0, r | 0);
+  if (c + dx > layout.cols && c < layout.cols) c = Math.max(0, layout.cols - dx);
+  if (r + dy > layout.rows && r < layout.rows) r = Math.max(0, layout.rows - dy);
+  if (!ensureGrid(c, r, dx, dy)) {
+    if ($("status")) $("status").textContent = `${def.name} needs ${dx} x ${dy} cells (max 16).`;
+    return false;
+  }
+  if (skip) {
+    if (overlapsOther(c, r, dx, dy, skip)) {
+      if ($("status")) $("status").textContent = "That cell is taken.";
+      return false;
+    }
+    skip.c = c;
+    skip.r = r;
+    refreshLayout(`Moved ${def.name} to ${c},${r}`);
+    return true;
+  }
+  layout.devices = layout.devices.filter((d) => {
+    const dd = byId[d.id];
+    if (!dd) return false;
+    const overlap =
+      c < d.c + dd.cells_x && c + dx > d.c &&
+      r < d.r + dd.cells_y && r + dy > d.r;
+    return !overlap;
+  });
+  layout.devices.push({ id, c, r });
+  refreshLayout(`Added ${def.name} at ${c},${r} (${layout.cols} x ${layout.rows})`);
+  return true;
+}
+
+function addSelectedDevice() {
+  const id = $("device")?.value;
+  const def = canPlaceId(id);
+  if (!def) {
+    if ($("status")) $("status").textContent = "Pick a lid or floor part in the list, then Add device.";
+    return;
+  }
+  const dx = def.cells_x || 1;
+  const dy = def.cells_y || 1;
+  const at = firstFit(dx, dy);
+  if (!at) {
+    if ($("status")) $("status").textContent = "No room left (max 16 x 16).";
+    return;
+  }
+  placeDevice(id, at.c, at.r);
+}
+
+function removePlaced(d) {
+  const i = layout.devices.indexOf(d);
+  if (i < 0) return;
+  const name = byId[d.id]?.name || d.id;
+  layout.devices.splice(i, 1);
+  refreshLayout(`Removed ${name}`);
+}
+
+function duplicatePlaced(d) {
+  const def = canPlaceId(d.id);
+  if (!def) return;
+  const dx = def.cells_x || 1;
+  const dy = def.cells_y || 1;
+  const tries = [
+    { c: d.c + dx, r: d.r },
+    { c: d.c, r: d.r + dy },
+    { c: d.c + dx, r: d.r + dy },
+  ];
+  for (const p of tries) {
+    if (p.c + dx > 16 || p.r + dy > 16) continue;
+    if (!ensureGrid(p.c, p.r, dx, dy)) continue;
+    if (!overlapsOther(p.c, p.r, dx, dy)) {
+      layout.devices.push({ id: d.id, c: p.c, r: p.r });
+      refreshLayout(`Duplicated ${def.name} at ${p.c},${p.r}`);
+      return;
+    }
+  }
+  const at = firstFit(dx, dy);
+  if (!at) {
+    if ($("status")) $("status").textContent = "No room to duplicate.";
+    return;
+  }
+  placeDevice(d.id, at.c, at.r);
+}
+
 function renderTilts() {
   const box = $("tilts");
   box.innerHTML = "";
@@ -116,25 +275,59 @@ function renderTilts() {
 
 function renderGrid() {
   const g = $("grid");
+  if (!g) return;
   g.style.gridTemplateColumns = `repeat(${layout.cols}, 1fr)`;
   g.innerHTML = "";
   const occ = occMap();
   for (let r = 0; r < layout.rows; r++) {
     for (let c = 0; c < layout.cols; c++) {
-      const el = document.createElement("button");
-      el.type = "button";
+      const el = document.createElement("div");
       el.className = "cell";
+      el.dataset.c = String(c);
+      el.dataset.r = String(r);
       const hit = occ[`${c},${r}`];
       if (hit) {
         el.classList.add(byId[hit.id]?.place === "bottom" ? "bottom" : "on");
-        if (hit.c === c && hit.r === r) el.textContent = byId[hit.id]?.name || hit.id;
-        else el.textContent = "";
         el.setAttribute("aria-label", `${byId[hit.id]?.name || hit.id} at column ${c} row ${r}`);
+        if (hit.c === c && hit.r === r) {
+          const name = document.createElement("span");
+          name.className = "cell-name";
+          name.textContent = byId[hit.id]?.name || hit.id;
+          el.appendChild(name);
+          const actions = document.createElement("span");
+          actions.className = "cell-actions";
+          const dup = document.createElement("button");
+          dup.type = "button";
+          dup.textContent = "dup";
+          dup.title = "Duplicate";
+          dup.addEventListener("click", (e) => {
+            e.stopPropagation();
+            duplicatePlaced(hit);
+          });
+          const rm = document.createElement("button");
+          rm.type = "button";
+          rm.textContent = "remove";
+          rm.title = "Remove";
+          rm.addEventListener("click", (e) => {
+            e.stopPropagation();
+            removePlaced(hit);
+          });
+          actions.appendChild(dup);
+          actions.appendChild(rm);
+          el.appendChild(actions);
+          el.draggable = true;
+          el.addEventListener("dragstart", (e) => {
+            const i = layout.devices.indexOf(hit);
+            e.dataTransfer.setData("application/x-panel-placed", String(i));
+            e.dataTransfer.setData("text/plain", hit.id);
+            e.dataTransfer.effectAllowed = "copyMove";
+          });
+        }
       } else {
         el.textContent = `${c},${r}`;
         el.setAttribute("aria-label", `empty cell column ${c} row ${r}`);
+        el.addEventListener("click", () => stamp(c, r));
       }
-      el.addEventListener("click", () => stamp(c, r));
       g.appendChild(el);
     }
   }
@@ -149,27 +342,10 @@ function stamp(c, r) {
       if (!dd) return false;
       return !(c >= d.c && c < d.c + dd.cells_x && r >= d.r && r < d.r + dd.cells_y);
     });
-    renderGrid();
-    bumpPreview();
-    renderBOM();
+    refreshLayout("Cleared cell");
     return;
   }
-  if (c + def.cells_x > layout.cols || r + def.cells_y > layout.rows) {
-    $("status").textContent = `${def.name} needs ${def.cells_x} x ${def.cells_y} cells`;
-    return;
-  }
-  layout.devices = layout.devices.filter((d) => {
-    const dd = byId[d.id];
-    if (!dd) return false;
-    const overlap =
-      c < d.c + dd.cells_x && c + def.cells_x > d.c &&
-      r < d.r + dd.cells_y && r + def.cells_y > d.r;
-    return !overlap;
-  });
-  layout.devices.push({ id, c, r });
-  renderGrid();
-  bumpPreview();
-  renderBOM();
+  placeDevice(id, c, r);
 }
 
 function fillDevices() {
@@ -201,6 +377,7 @@ function fillDevices() {
   for (const o of rest) sel.appendChild(o);
   if (emptyOpt) sel.appendChild(emptyOpt);
   if (keepDev && [...sel.options].some((o) => o.value === keepDev)) sel.value = keepDev;
+  else if (![...sel.options].some((o) => o.value === sel.value) && rest[0]) sel.value = rest[0].value;
   if (keepWall && [...wsel.options].some((o) => o.value === keepWall)) wsel.value = keepWall;
   if (!sel.dataset.bound) {
     sel.dataset.bound = "1";
@@ -329,6 +506,61 @@ $("add-wall").addEventListener("click", () => {
   });
   renderWalls();
 });
+$("add-dev")?.addEventListener("click", () => addSelectedDevice());
+$("device")?.addEventListener("dblclick", () => addSelectedDevice());
+$("devdrag")?.addEventListener("dragstart", (e) => {
+  const id = $("device")?.value || "";
+  e.dataTransfer.setData("application/x-panel-device", id);
+  e.dataTransfer.setData("text/plain", id);
+  e.dataTransfer.effectAllowed = "copy";
+});
+
+function dropPayload(e) {
+  const placed = e.dataTransfer.getData("application/x-panel-placed");
+  const catalog = e.dataTransfer.getData("application/x-panel-device") || e.dataTransfer.getData("text/plain");
+  return { placed, catalog };
+}
+
+function handleDropAt(c, r, e) {
+  const { placed, catalog } = dropPayload(e);
+  if (placed !== "") {
+    const d = layout.devices[Number(placed)];
+    if (d) placeDevice(d.id, c, r, d);
+    return;
+  }
+  if (catalog && catalog !== "empty") placeDevice(catalog, c, r);
+}
+
+function bindDropTarget(el, from3d) {
+  if (!el || el.dataset.dropBound) return;
+  el.dataset.dropBound = "1";
+  el.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    el.classList.add("drop-over");
+  });
+  el.addEventListener("dragleave", (e) => {
+    if (!el.contains(e.relatedTarget)) el.classList.remove("drop-over");
+  });
+  el.addEventListener("drop", (e) => {
+    e.preventDefault();
+    el.classList.remove("drop-over");
+    if (from3d) {
+      const at = window.PANEL_CELL_AT && window.PANEL_CELL_AT(e.clientX, e.clientY);
+      if (!at) {
+        if ($("status")) $("status").textContent = "Drop on the lid of the case.";
+        return;
+      }
+      handleDropAt(at.c, at.r, e);
+      return;
+    }
+    const cell = e.target.closest(".cell");
+    if (!cell) return;
+    handleDropAt(Number(cell.dataset.c), Number(cell.dataset.r), e);
+  });
+}
+bindDropTarget($("grid"), false);
+bindDropTarget($("view3d"), true);
+
 $("add-hang")?.addEventListener("click", () => {
   if (!Array.isArray(layout.hangs)) layout.hangs = [];
   layout.hangs.push({

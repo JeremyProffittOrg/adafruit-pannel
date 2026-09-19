@@ -579,13 +579,33 @@ function build(l) {
       addHangMarker(g, pos * PITCH, hangBottomY(l), BOT / 2, 0, h.orient || "down", cutMat);
     }
   }
+  const dropZ = BOT + inner + (viewMode === "top" ? 10 : 0);
+  const dw = (cols + 3) * PITCH;
+  const dh = (rows + 3) * PITCH;
+  const drop = new THREE.Mesh(
+    new THREE.PlaneGeometry(dw, dh),
+    new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+  );
+  drop.position.set(cols * PITCH / 2, rows * PITCH / 2, dropZ);
+  drop.userData.drop = true;
+  drop.userData.ox = cols * PITCH / 2;
+  drop.userData.oy = rows * PITCH / 2;
+  shell.add(drop);
   g.rotation.x = -Math.PI / 2;
   return g;
 }
 
 function fitCamera() {
   if (!root || !camera || !controls) return;
+  const hidden = [];
+  root.traverse((o) => {
+    if (o.userData && o.userData.drop) {
+      hidden.push(o);
+      o.visible = false;
+    }
+  });
   const box = new THREE.Box3().setFromObject(root);
+  for (const o of hidden) o.visible = true;
   if (box.isEmpty()) return;
   const c = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
@@ -662,5 +682,33 @@ function init() {
   })();
 }
 
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+
+function cellFromPointer(clientX, clientY) {
+  if (!renderer || !camera || !root) return null;
+  const el = renderer.domElement;
+  const rect = el.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return null;
+  ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(ndc, camera);
+  const drops = [];
+  root.traverse((o) => {
+    if (o.userData && o.userData.drop) drops.push(o);
+  });
+  const hits = raycaster.intersectObjects(drops, false);
+  if (!hits.length) return null;
+  const hit = hits[0];
+  const loc = hit.object.worldToLocal(hit.point.clone());
+  const ox = hit.object.userData.ox || 0;
+  const oy = hit.object.userData.oy || 0;
+  const c = Math.floor((loc.x + ox) / PITCH);
+  const r = Math.floor((loc.y + oy) / PITCH);
+  if (c < -2 || r < -2 || c > 16 || r > 16) return null;
+  return { c: Math.max(0, Math.min(15, c)), r: Math.max(0, Math.min(15, r)) };
+}
+
 window.rebuildPreview = rebuildPreview;
+window.PANEL_CELL_AT = cellFromPointer;
 init();
