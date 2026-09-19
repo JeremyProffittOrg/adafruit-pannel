@@ -45,14 +45,14 @@ def main():
     sha = git(["rev-parse", "HEAD"])
     evidence = (
         f"case-anim  {CASE_URL}\n"
-        f"  local {CASE_LOCAL}  {CASE_LOCAL.stat().st_size} bytes  1280x720  24 fps  75 s\n"
+        f"  local {CASE_LOCAL}  {CASE_LOCAL.stat().st_size} bytes  1280x720  24 fps  75 s  with voiceover\n"
         f"site-intro {SITE_URL}\n"
-        f"  local {SITE_LOCAL}  {SITE_LOCAL.stat().st_size} bytes  1280x720  24 fps  60 s\n"
+        f"  local {SITE_LOCAL}  {SITE_LOCAL.stat().st_size} bytes  1280x720  24 fps  78 s  with voiceover\n"
         f"site https://ap.jeremy.ninja/"
     )
     outcome = (
-        "Two videos are on S3: 75 s case animation (explode, print flip, skirt drop, tilt) "
-        "and 60 s site intro of ap.jeremy.ninja."
+        "Two videos with spoken walkthrough are on S3: 75 s case animation "
+        "(explode, print flip, skirt drop, tilt) and 78 s site intro of ap.jeremy.ninja."
     )
     repl = {
         "{{OUTCOME_ONE_LINE}}": outcome,
@@ -74,7 +74,7 @@ def main():
         1,
     )
     html = html.replace(
-        "60 s site intro",
+        "78 s site intro",
         f'<a href="{SITE_URL}" style="color:#1d4ed8;background-color:#dbeafe">60 s site intro</a>',
         1,
     )
@@ -82,7 +82,7 @@ def main():
     msg["From"] = FROM_ADDR
     msg["To"] = TO_ADDR
     msg["Reply-To"] = TO_ADDR
-    msg["Subject"] = "adafruit-pannel — 75s case animation and 60s site intro on S3"
+    msg["Subject"] = "adafruit-pannel — case animation and site intro now have voiceover"
     msg["Date"] = email.utils.format_datetime(dt.datetime.now().astimezone())
     msg["Message-ID"] = email.utils.make_msgid(idstring="adafruit-pannel-videos", domain="jeremy.ninja")
     msg.set_content(
