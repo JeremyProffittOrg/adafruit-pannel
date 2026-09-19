@@ -14,6 +14,7 @@ window.PANEL_LAYOUT = layout;
 
 function bumpPreview() {
   window.PANEL_LAYOUT = layout;
+  window.PANEL_BY_ID = byId;
   if (window.rebuildPreview) window.rebuildPreview();
 }
 
@@ -228,6 +229,7 @@ fetch("/api/devices")
   .then((j) => {
     LIB = j;
     fillDevices();
+    window.PANEL_BY_ID = byId;
     syncSize();
     $("preset-sq").click();
   });
