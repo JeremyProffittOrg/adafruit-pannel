@@ -11,7 +11,7 @@ textarea { width:100%; font:inherit; }
 #hits, #caselist, #notelist, #partcases { padding-left:18px; margin:6px 0; }
 #hits li, #caselist li { cursor:pointer; }
 main { display:flex; gap:12px; padding:12px; align-items:flex-start; flex-wrap:wrap; }
-.col { background:var(--card); padding:14px; border:1px solid var(--line); min-width:min(100%, 240px); max-height: calc(100vh - 100px); overflow:auto; flex: 0 1 260px; }
+.col { background:var(--card); padding:14px; border:1px solid var(--line); min-width:min(100%, 260px); max-height: calc(100vh - 100px); overflow:auto; flex: 0 1 280px; }
 .col.wide { flex:2 1 420px; min-width: min(100%, 320px); }
 #library { display:none; }
 body.signed-in #library { display:block; }
