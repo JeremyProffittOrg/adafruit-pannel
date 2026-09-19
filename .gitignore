@@ -4,6 +4,9 @@ data/scraped-products.json
 data/pcb/*.brd
 data/pcb/*.json
 docs/preview/
+cad/generated/
+cad/out/
+bin/
 docs/views/
 docs/_ses-request.json
 docs/_aws*
