@@ -18,3 +18,5 @@ docs/_probe.bin
 __pycache__/
 *.pyc
 .DS_Store
+.aws-sam/
+samconfig.toml.bak

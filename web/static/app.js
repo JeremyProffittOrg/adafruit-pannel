@@ -127,12 +127,32 @@ function fillDevices() {
       wsel.appendChild(w);
     }
   }
-  sel.addEventListener("change", () => {
-    const d = byId[sel.value];
-    $("devinfo").textContent = d
-      ? `${d.cells_x} x ${d.cells_y} cells. place ${d.place}. ${d.url || ""}`
-      : "";
-  });
+  if (!sel.dataset.bound) {
+    sel.dataset.bound = "1";
+    sel.addEventListener("change", () => {
+      showDevice(byId[sel.value]);
+    });
+  }
+  if (sel.value) showDevice(byId[sel.value]);
+}
+
+function showDevice(d) {
+  const info = $("devinfo");
+  const link = $("devurl");
+  if (!d) {
+    info.textContent = "";
+    link.hidden = true;
+    return;
+  }
+  info.textContent = `${d.cells_x} x ${d.cells_y} cells. place ${d.place}. ${d.brand || ""}`;
+  if (d.url) {
+    link.hidden = false;
+    link.href = d.url;
+    link.textContent = `Manufacturer page — ${d.name}`;
+  } else {
+    link.hidden = true;
+  }
+  loadPartCases(d.id);
 }
 
 function renderWalls() {
@@ -206,7 +226,7 @@ $("preset-tilt").addEventListener("click", () => {
   syncSize();
 });
 $("go").addEventListener("click", async () => {
-  $("status").textContent = "Rendering OpenSCAD (bottom + top). This can take a minute.";
+  $("status").textContent = "Building zip (BOM + SCAD, STL if OpenSCAD is on this host).";
   const res = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -221,7 +241,203 @@ $("go").addEventListener("click", async () => {
   a.href = URL.createObjectURL(blob);
   a.download = "panel-case.zip";
   a.click();
-  $("status").textContent = `zip ${blob.size} bytes. Print top as exported (already flipped).`;
+  $("status").textContent = `zip ${blob.size} bytes. Includes BOM.csv / BOM.md and manufacturer links.`;
+});
+
+let signedIn = false;
+let currentCaseId = "";
+
+async function api(path, opt) {
+  const res = await fetch(path, opt);
+  if (res.status === 204) return null;
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) throw new Error((data && data.error) || text || res.status);
+  return data;
+}
+
+function applyCase(rec) {
+  currentCaseId = rec.id;
+  $("casetitle").value = rec.title || "";
+  if ($("folder") && rec.folder_id) $("folder").value = rec.folder_id;
+  layout = rec.layout;
+  $("cols").value = layout.cols;
+  $("rows").value = layout.rows;
+  $("inner").value = layout.inner_h;
+  if ($("edge")) $("edge").value = layout.edge_style || "round";
+  if ($("edgemm")) $("edgemm").value = layout.edge_mm || 2;
+  syncSize();
+  renderWalls();
+  loadNotes();
+}
+
+async function refreshFolders() {
+  const list = await api("/api/folders");
+  const sel = $("folder");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">(no folder)</option>`;
+  for (const f of list) {
+    const o = document.createElement("option");
+    o.value = f.id;
+    o.textContent = f.name;
+    sel.appendChild(o);
+  }
+  if (cur) sel.value = cur;
+}
+
+async function refreshCases() {
+  const folder = $("folder").value;
+  const q = folder ? `/api/cases?folder=${encodeURIComponent(folder)}` : "/api/cases";
+  const list = await api(q);
+  const ul = $("caselist");
+  ul.innerHTML = "";
+  for (const rec of list) {
+    const li = document.createElement("li");
+    li.textContent = rec.title;
+    li.onclick = () => applyCase(rec);
+    const rm = document.createElement("button");
+    rm.textContent = "delete";
+    rm.onclick = async (ev) => {
+      ev.stopPropagation();
+      await api(`/api/cases/${rec.id}`, { method: "DELETE" });
+      if (currentCaseId === rec.id) currentCaseId = "";
+      await refreshCases();
+    };
+    li.appendChild(rm);
+    ul.appendChild(li);
+  }
+}
+
+async function loadNotes() {
+  const ul = $("notelist");
+  ul.innerHTML = "";
+  if (!currentCaseId) return;
+  const list = await api(`/api/cases/${currentCaseId}/notes`);
+  for (const n of list) {
+    const li = document.createElement("li");
+    li.textContent = n.text;
+    const rm = document.createElement("button");
+    rm.textContent = "delete";
+    rm.onclick = async () => {
+      await api(`/api/cases/${currentCaseId}/notes/${n.id}`, { method: "DELETE" });
+      await loadNotes();
+    };
+    li.appendChild(rm);
+    ul.appendChild(li);
+  }
+}
+
+async function loadPartCases(part) {
+  const ul = $("partcases");
+  if (!ul) return;
+  ul.innerHTML = "";
+  if (!signedIn || !part) return;
+  try {
+    const list = await api(`/api/parts/${encodeURIComponent(part)}/cases`);
+    for (const rec of list) {
+      const li = document.createElement("li");
+      li.textContent = rec.title;
+      li.onclick = () => applyCase(rec);
+      ul.appendChild(li);
+    }
+    if (!list.length) {
+      const li = document.createElement("li");
+      li.textContent = "none saved yet";
+      ul.appendChild(li);
+    }
+  } catch {
+    /* not signed in */
+  }
+}
+
+async function bootLibrary() {
+  const me = await api("/api/me");
+  signedIn = !!me.login;
+  $("wholabel").textContent = signedIn ? (me.name || me.email || "signed in") : "not signed in";
+  $("loginbtn").hidden = signedIn;
+  $("logoutbtn").hidden = !signedIn;
+  $("libhint").hidden = signedIn;
+  $("libbody").hidden = !signedIn;
+  if (!signedIn) return;
+  await refreshFolders();
+  await refreshCases();
+}
+
+$("dosearch")?.addEventListener("click", async () => {
+  const q = $("q").value.trim();
+  const ul = $("hits");
+  ul.innerHTML = "";
+  if (!q) return;
+  const hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
+  for (const h of hits) {
+    const li = document.createElement("li");
+    li.textContent = `${h.kind}: ${h.title || ""} ${h.text || ""}`.trim();
+    li.onclick = async () => {
+      if (h.kind === "case") applyCase(await api(`/api/cases/${h.id}`));
+      if (h.kind === "note" && h.case_id) applyCase(await api(`/api/cases/${h.case_id}`));
+      if (h.kind === "folder") {
+        $("folder").value = h.id;
+        await refreshCases();
+      }
+    };
+    ul.appendChild(li);
+  }
+});
+$("q")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("dosearch").click();
+});
+$("addfolder")?.addEventListener("click", async () => {
+  const name = $("foldername").value.trim();
+  if (!name) return;
+  const f = await api("/api/folders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  $("foldername").value = "";
+  await refreshFolders();
+  $("folder").value = f.id;
+  await refreshCases();
+});
+$("delfolder")?.addEventListener("click", async () => {
+  const id = $("folder").value;
+  if (!id) return;
+  await api(`/api/folders/${id}`, { method: "DELETE" });
+  await refreshFolders();
+  await refreshCases();
+});
+$("folder")?.addEventListener("change", () => refreshCases());
+$("savecase")?.addEventListener("click", async () => {
+  const rec = {
+    id: currentCaseId || undefined,
+    title: $("casetitle").value.trim() || "Untitled case",
+    folder_id: $("folder").value,
+    layout,
+  };
+  const out = await api(currentCaseId ? `/api/cases/${currentCaseId}` : "/api/cases", {
+    method: currentCaseId ? "PUT" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(rec),
+  });
+  currentCaseId = out.id;
+  $("status").textContent = `saved ${out.title}`;
+  await refreshCases();
+});
+$("addnote")?.addEventListener("click", async () => {
+  if (!currentCaseId) {
+    $("status").textContent = "save the case before adding a note";
+    return;
+  }
+  const text = $("notetext").value.trim();
+  if (!text) return;
+  await api(`/api/cases/${currentCaseId}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  $("notetext").value = "";
+  await loadNotes();
 });
 
 fetch("/api/devices")
@@ -232,4 +448,7 @@ fetch("/api/devices")
     window.PANEL_BY_ID = byId;
     syncSize();
     $("preset-sq").click();
+    bootLibrary().catch((e) => {
+      $("status").textContent = String(e);
+    });
   });

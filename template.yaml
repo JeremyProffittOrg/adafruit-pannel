@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: ap.jeremy.ninja panel case builder (Fiber on Lambda)
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: ap.jeremy.ninja
+  CertificateArn:
+    Type: String
+  HostedZoneId:
+    Type: String
+  LwaClientId:
+    Type: String
+    Default: ""
+    NoEcho: true
+  LwaClientSecret:
+    Type: String
+    Default: ""
+    NoEcho: true
+  SessionSecret:
+    Type: String
+    Default: ""
+    NoEcho: true
+
+Globals:
+  Function:
+    Timeout: 28
+    MemorySize: 1024
+    Architectures: [arm64]
+    Runtime: provided.al2023
+
+Resources:
+  WebLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/adafruit-pannel-web
+      RetentionInDays: 7
+
+  Table:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: adafruit-pannel
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      Domain:
+        DomainName: !Ref DomainName
+        CertificateArn: !Ref CertificateArn
+        EndpointConfiguration: REGIONAL
+        Route53:
+          HostedZoneId: !Ref HostedZoneId
+
+  WebFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: WebLogs
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: adafruit-pannel-web
+      Handler: bootstrap
+      CodeUri: .
+      Description: Panel case builder (Fiber)
+      Environment:
+        Variables:
+          TABLE: !Ref Table
+          PUBLIC_BASE: !Sub https://${DomainName}
+          LWA_CLIENT_ID: !Ref LwaClientId
+          LWA_CLIENT_SECRET: !Ref LwaClientSecret
+          SESSION_SECRET: !Ref SessionSecret
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Table
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  SiteUrl:
+    Value: !Sub https://${DomainName}
+  TableName:
+    Value: !Ref Table

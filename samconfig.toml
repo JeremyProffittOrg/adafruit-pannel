@@ -1,0 +1,11 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "adafruit-pannel"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+s3_bucket = "cloudformation-jeremy-ninja"
+s3_prefix = "adafruit-pannel"
+confirm_changeset = false
+fail_on_empty_changeset = false
+resolve_s3 = false
+tags = "Project=adafruit-pannel CostCenter=home-iot Environment=prod ManagedBy=sam DeployedVia=github-actions Owner=jeremy"

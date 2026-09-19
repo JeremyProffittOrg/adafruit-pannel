@@ -15,10 +15,41 @@
 </head>
 <body>
   <header>
-    <h1>Panel case builder</h1>
-    <p>Closed 1.00 in case. Four walls. The lid is a shoebox cover: a skirt drops over the tray, short rim pegs locate it, M3 from below. Drag the 3D view. Generate print STLs when the preview is right.</p>
+    <div class="headrow">
+      <div>
+        <h1>Panel case builder</h1>
+        <p>Closed 1.00 in case. Four walls. The lid is a shoebox cover: a skirt drops over the tray, short rim pegs locate it, M3 from below. Sign in with Amazon to save folders, cases, and notes. Generate a zip with the bill of materials when the preview is right.</p>
+      </div>
+      <div class="who">
+        <span id="wholabel">not signed in</span>
+        <a id="loginbtn" href="/login">Sign in with Amazon</a>
+        <a id="logoutbtn" href="/logout" hidden>Sign out</a>
+      </div>
+    </div>
   </header>
   <main>
+    <section class="col" id="library">
+      <h2>Library</h2>
+      <p id="libhint">Sign in to save folders and cases.</p>
+      <div id="libbody" hidden>
+        <label>Search <input id="q" type="search" placeholder="cases, notes, parts"></label>
+        <button type="button" id="dosearch">Search</button>
+        <ul id="hits"></ul>
+        <h2>Folders / projects</h2>
+        <select id="folder"></select>
+        <input id="foldername" placeholder="new folder name">
+        <button type="button" id="addfolder">Add folder</button>
+        <button type="button" id="delfolder">Delete folder</button>
+        <h2>Saved cases</h2>
+        <ul id="caselist"></ul>
+        <label>Case title <input id="casetitle" placeholder="name this case"></label>
+        <button type="button" id="savecase" class="primary">Save case in folder</button>
+        <h2>Notes</h2>
+        <textarea id="notetext" rows="3" placeholder="note on this case"></textarea>
+        <button type="button" id="addnote">Add note</button>
+        <ul id="notelist"></ul>
+      </div>
+    </section>
     <section class="col">
       <h2>Case</h2>
       <label>Columns <input id="cols" type="number" min="1" max="16" value="5"></label>
@@ -42,7 +73,7 @@
       <button type="button" data-view="bottom">Bottom</button>
       <button type="button" data-view="top">Top</button>
       <h2>Build</h2>
-      <button type="button" id="go" class="primary">Generate STLs (zip)</button>
+      <button type="button" id="go" class="primary">Generate zip (BOM + files)</button>
       <p id="status"></p>
     </section>
     <section class="col wide">
@@ -58,6 +89,9 @@
       <input id="devfilter" placeholder="filter devices" type="search">
       <select id="device" size="16"></select>
       <p id="devinfo"></p>
+      <p><a id="devurl" href="#" target="_blank" rel="noopener" hidden>Manufacturer page</a></p>
+      <h2>Cases with this part</h2>
+      <ul id="partcases"></ul>
       <h2>Wall STEMMA / M5 unit</h2>
       <select id="wall-dev"></select>
       <select id="wall-side">

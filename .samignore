@@ -1,0 +1,15 @@
+docs/
+data/
+print-kits/
+cad/stl/
+cad/generated/
+cad/out/
+cad/presets/
+bin/
+*.mp4
+*.pdf
+*.png
+*.stl
+*.3mf
+.aws-sam/
+.git/

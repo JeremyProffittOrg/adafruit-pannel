@@ -1,19 +1,28 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
+	"context"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
-	"sync"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	fiberadapter "github.com/awslabs/aws-lambda-go-api-proxy/fiber"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
-var genMu sync.Mutex
+var (
+	store   *Store
+	adapter *fiberadapter.FiberLambda
+)
 
 func repoRoot() string {
+	if v := os.Getenv("LAMBDA_TASK_ROOT"); v != "" {
+		return v
+	}
 	wd, _ := os.Getwd()
 	if _, err := os.Stat(filepath.Join(wd, "cad", "case.scad")); err == nil {
 		return wd
@@ -24,48 +33,76 @@ func repoRoot() string {
 	return wd
 }
 
+func newApp() *fiber.App {
+	app := fiber.New(fiber.Config{
+		BodyLimit: 2 << 20,
+	})
+	app.Use(recover.New())
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") == "" {
+		app.Use(logger.New())
+	}
+
+	root := repoRoot()
+	staticDir := filepath.Join(root, "web", "static")
+	if os.Getenv("LAMBDA_TASK_ROOT") != "" {
+		staticDir = filepath.Join(root, "static")
+	}
+	app.Static("/", staticDir)
+
+	app.Get("/login", handleLogin)
+	app.Get("/logout", handleLogout)
+	app.Get("/auth/amazon/callback", handleLWACallback)
+
+	app.Get("/api/me", handleMe)
+	app.Get("/api/devices", handleDevices)
+	app.Post("/api/generate", handleGenerate)
+
+	api := app.Group("/api", requireUser)
+	api.Get("/folders", handleFolders)
+	api.Post("/folders", handleFolders)
+	api.Put("/folders/:id", handleFolder)
+	api.Delete("/folders/:id", handleFolder)
+	api.Get("/cases", handleCases)
+	api.Post("/cases", handleCases)
+	api.Get("/cases/:id", handleCase)
+	api.Put("/cases/:id", handleCase)
+	api.Delete("/cases/:id", handleCase)
+	api.Get("/cases/:id/notes", handleNotes)
+	api.Post("/cases/:id/notes", handleNotes)
+	api.Delete("/cases/:id/notes/:nid", handleNoteDelete)
+	api.Get("/search", handleSearch)
+	api.Get("/parts/:part/cases", handleCasesByPart)
+	return app
+}
+
+func lambdaHandler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	return adapter.ProxyWithContextV2(ctx, req)
+}
+
 func main() {
 	root := repoRoot()
 	if err := os.Chdir(root); err != nil {
 		log.Fatal(err)
 	}
-	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(filepath.Join(root, "web", "static"))))
-	mux.HandleFunc("/api/devices", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, filepath.Join(root, "library", "devices.json"))
-	})
-	mux.HandleFunc("/api/generate", handleGenerate)
+	if err := loadCatalog(root); err != nil {
+		log.Printf("catalog: %v", err)
+	}
+	ctx := context.Background()
+	st, err := newStore(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	store = st
+	app := newApp()
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		adapter = fiberadapter.New(app)
+		lambda.Start(lambdaHandler)
+		return
+	}
 	addr := ":8787"
 	if p := os.Getenv("PORT"); p != "" {
 		addr = ":" + p
 	}
-	fmt.Printf("panel web  http://127.0.0.1%s\n", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
-}
-
-func handleGenerate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST only", http.StatusMethodNotAllowed)
-		return
-	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	var l Layout
-	if err := json.Unmarshal(body, &l); err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	genMu.Lock()
-	defer genMu.Unlock()
-	zipPath := filepath.Join("cad", "generated", "panel.zip")
-	if err := buildZip(l, zipPath); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", "attachment; filename=panel-case.zip")
-	http.ServeFile(w, r, zipPath)
+	log.Printf("panel web  http://127.0.0.1%s", addr)
+	log.Fatal(app.Listen(addr))
 }

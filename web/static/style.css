@@ -4,6 +4,12 @@ body { margin:0; font:14px/1.45 Segoe UI, sans-serif; color:var(--ink); backgrou
 header { background:var(--navy); color:#e2e8f0; padding:16px 20px; }
 header h1 { margin:0 0 6px; font-size:20px; }
 header p { margin:0; color:#cbd5e1; max-width:90ch; }
+.headrow { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+.who { display:flex; flex-direction:column; align-items:flex-end; gap:6px; min-width:12rem; }
+.who a { color:#93c5fd; }
+textarea { width:100%; font:inherit; }
+#hits, #caselist, #notelist, #partcases { padding-left:18px; margin:6px 0; }
+#hits li, #caselist li { cursor:pointer; }
 main { display:flex; gap:16px; padding:16px; align-items:flex-start; }
 .col { background:var(--card); padding:14px; border:1px solid var(--line); min-width:230px; max-height: calc(100vh - 120px); overflow:auto; }
 .col.wide { flex:1; min-width: 420px; }
