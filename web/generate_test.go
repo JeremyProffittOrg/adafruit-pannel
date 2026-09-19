@@ -134,6 +134,17 @@ func TestBomDefaultsEdge(t *testing.T) {
 	}
 }
 
+func TestLidBomItemOverhangWording(t *testing.T) {
+	on := lidBomItem(Layout{Overlap: true})
+	if on != "Lid (printed, face on bed, rounded top overhang)" {
+		t.Fatalf("overlap on: %s", on)
+	}
+	off := lidBomItem(Layout{Overlap: false})
+	if off != "Lid (printed, face on bed, flush — no overhang)" {
+		t.Fatalf("overlap off: %s", off)
+	}
+}
+
 func TestPostCountSkipsTiltedFrontBack(t *testing.T) {
 	l := Layout{Cols: 4, Rows: 6, Tilts: []float64{0, 0, 0, 30, 30, -30}}
 	// left/right on rows 0,1,2 only (6) + front on row 0 (3) = 9; no back

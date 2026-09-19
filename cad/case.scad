@@ -735,8 +735,8 @@ module top_lid_flat() {
             translate([0, 0, C_WALL_H - C_SKIRT_H - 0.05])
                 linear_extrude(1.5)
                     translate([-C_WALL - C_FIT - C_MOUTH, -C_WALL - C_FIT - C_MOUTH])
-                        square([case_w() + 2*(C_FIT + C_MOUTH),
-                                case_d() + 2*(C_FIT + C_MOUTH)]);
+                        edge_rect(case_w() + 2*(C_FIT + C_MOUTH),
+                                  case_d() + 2*(C_FIT + C_MOUTH));
         lid_device_cuts();
         lid_tap_holes();
     }

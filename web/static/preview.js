@@ -154,6 +154,32 @@ function zSkirtSeg(parent, x, y0, z0, y1, z1, mat) {
   }
 }
 
+function edgeR(l) {
+  if (!l || l.edge_style === "square") return 0;
+  const e = Number(l.edge_mm);
+  return Number.isFinite(e) && e > 0.2 ? Math.min(e, 8) : 2;
+}
+function addExtrudedRounded(parent, x, y, w, h, depth, z, r, mat) {
+  const shape = new THREE.Shape();
+  roundedRectPath(shape, x, y, w, h, r);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 16 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.z = z;
+  parent.add(mesh);
+  return mesh;
+}
+function addRoundedRing(parent, ox, oy, ow, oh, ix, iy, iw, ih, rOut, rIn, depth, z, mat) {
+  const shape = new THREE.Shape();
+  roundedRectPath(shape, ox, oy, ow, oh, rOut);
+  const hole = new THREE.Path();
+  roundedRectPath(hole, ix, iy, iw, ih, rIn);
+  shape.holes.push(reversePath(hole));
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 16 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.z = z;
+  parent.add(mesh);
+  return mesh;
+}
 function roundedRectPath(shape, x, y, w, h, r) {
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   shape.moveTo(x + r, y);
@@ -288,8 +314,7 @@ function lidWithHoles(l, inner) {
   const w = cols * PITCH + 2 * WALL + 2 * ex;
   const d = rows * PITCH + 2 * WALL + 2 * ex;
   const shape = new THREE.Shape();
-  const e = Math.min(Number.isFinite(l.edge_mm) ? l.edge_mm : 2, 6);
-  roundedRectPath(shape, -WALL - ex, -WALL - ex, w, d, l.edge_style === "square" ? 0 : e);
+  roundedRectPath(shape, -WALL - ex, -WALL - ex, w, d, edgeR(l));
   punchDeviceHoles(shape, l, null);
   const geo = new THREE.ExtrudeGeometry(shape, { depth: TOP, bevelEnabled: false, curveSegments: 12 });
   const mesh = new THREE.Mesh(
@@ -343,6 +368,14 @@ function build(l) {
   }
 
   const colMode = isCol(l);
+  const flat = (l.tilt_axis === "flat") || (l.tilts || []).every((v) => !v);
+  const er = edgeR(l);
+  if (flat) {
+    const cw = cols * PITCH + 2 * WALL;
+    const cd = rows * PITCH + 2 * WALL;
+    addExtrudedRounded(tray, -WALL, -WALL, cw, cd, BOT, 0, er, wallMat);
+    addRoundedRing(tray, -WALL, -WALL, cw, cd, 0, 0, cols * PITCH, rows * PITCH, er, 0, H - BOT, BOT, wallMat);
+  }
   if (colMode) {
     const cd = rows * PITCH + 2 * WALL;
     for (let i = 0; i < cols; i++) {
@@ -352,11 +385,13 @@ function build(l) {
       col.rotation.y = -t;
       const x0 = i === 0 ? -WALL : 0;
       const xl = PITCH + (i === 0 ? WALL : 0) + (i === cols - 1 ? WALL : 0);
-      box(col, xl, cd, BOT, x0 + xl / 2, rows * PITCH / 2, BOT / 2);
-      box(col, xl, WALL, H, x0 + xl / 2, -WALL / 2, H / 2);
-      box(col, xl, WALL, H, x0 + xl / 2, rows * PITCH + WALL / 2, H / 2);
-      if (i === 0) box(col, WALL, cd, H, -WALL / 2, rows * PITCH / 2, H / 2);
-      if (i === cols - 1) box(col, WALL, cd, H, PITCH + WALL / 2, rows * PITCH / 2, H / 2);
+      if (!flat) {
+        box(col, xl, cd, BOT, x0 + xl / 2, rows * PITCH / 2, BOT / 2);
+        box(col, xl, WALL, H, x0 + xl / 2, -WALL / 2, H / 2);
+        box(col, xl, WALL, H, x0 + xl / 2, rows * PITCH + WALL / 2, H / 2);
+        if (i === 0) box(col, WALL, cd, H, -WALL / 2, rows * PITCH / 2, H / 2);
+        if (i === cols - 1) box(col, WALL, cd, H, PITCH + WALL / 2, rows * PITCH / 2, H / 2);
+      }
       tray.add(col);
       trayRows[i] = col;
     }
@@ -369,11 +404,13 @@ function build(l) {
       const y0 = i === 0 ? -WALL : 0;
       const yl = PITCH + (i === 0 ? WALL : 0) + (i === rows - 1 ? WALL : 0);
       const cw = cols * PITCH + 2 * WALL;
-      box(row, cw, yl, BOT, cols * PITCH / 2, y0 + yl / 2, BOT / 2);
-      box(row, WALL, yl, H, -WALL / 2, y0 + yl / 2, H / 2);
-      box(row, WALL, yl, H, cols * PITCH + WALL / 2, y0 + yl / 2, H / 2);
-      if (i === 0) box(row, cw, WALL, H, cols * PITCH / 2, -WALL / 2, H / 2);
-      if (i === rows - 1) box(row, cw, WALL, H, cols * PITCH / 2, PITCH + WALL / 2, H / 2);
+      if (!flat) {
+        box(row, cw, yl, BOT, cols * PITCH / 2, y0 + yl / 2, BOT / 2);
+        box(row, WALL, yl, H, -WALL / 2, y0 + yl / 2, H / 2);
+        box(row, WALL, yl, H, cols * PITCH + WALL / 2, y0 + yl / 2, H / 2);
+        if (i === 0) box(row, cw, WALL, H, cols * PITCH / 2, -WALL / 2, H / 2);
+        if (i === rows - 1) box(row, cw, WALL, H, cols * PITCH / 2, PITCH + WALL / 2, H / 2);
+      }
       tray.add(row);
       trayRows[i] = row;
     }
@@ -420,25 +457,26 @@ function build(l) {
       }
     }
   }
-  if (colMode) {
-    for (let i = 0; i < cols - 1; i++) {
-      const m0 = colMatrix(l, i);
-      const m1 = colMatrix(l, i + 1);
-      hullBoxes(tray, m0, [PITCH - 0.05, -WALL, 0, 0.05, WALL, H], m1, [0, -WALL, 0, 0.05, WALL, H], wallMat);
-      hullBoxes(tray, m0, [PITCH - 0.05, rows * PITCH, 0, 0.05, WALL, H], m1, [0, rows * PITCH, 0, 0.05, WALL, H], wallMat);
-      hullBoxes(tray, m0, [PITCH - 0.05, -WALL, 0, 0.05, rows * PITCH + 2 * WALL, BOT], m1, [0, -WALL, 0, 0.05, rows * PITCH + 2 * WALL, BOT], wallMat);
-    }
-  } else {
-    for (let i = 0; i < rows - 1; i++) {
-      const m0 = rowMatrix(l, i);
-      const m1 = rowMatrix(l, i + 1);
-      hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, WALL, 0.05, H], m1, [-WALL, 0, 0, WALL, 0.05, H], wallMat);
-      hullBoxes(tray, m0, [cols * PITCH, PITCH - 0.05, 0, WALL, 0.05, H], m1, [cols * PITCH, 0, 0, WALL, 0.05, H], wallMat);
-      hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, cols * PITCH + 2 * WALL, 0.05, BOT], m1, [-WALL, 0, 0, cols * PITCH + 2 * WALL, 0.05, BOT], wallMat);
+  if (!flat) {
+    if (colMode) {
+      for (let i = 0; i < cols - 1; i++) {
+        const m0 = colMatrix(l, i);
+        const m1 = colMatrix(l, i + 1);
+        hullBoxes(tray, m0, [PITCH - 0.05, -WALL, 0, 0.05, WALL, H], m1, [0, -WALL, 0, 0.05, WALL, H], wallMat);
+        hullBoxes(tray, m0, [PITCH - 0.05, rows * PITCH, 0, 0.05, WALL, H], m1, [0, rows * PITCH, 0, 0.05, WALL, H], wallMat);
+        hullBoxes(tray, m0, [PITCH - 0.05, -WALL, 0, 0.05, rows * PITCH + 2 * WALL, BOT], m1, [0, -WALL, 0, 0.05, rows * PITCH + 2 * WALL, BOT], wallMat);
+      }
+    } else {
+      for (let i = 0; i < rows - 1; i++) {
+        const m0 = rowMatrix(l, i);
+        const m1 = rowMatrix(l, i + 1);
+        hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, WALL, 0.05, H], m1, [-WALL, 0, 0, WALL, 0.05, H], wallMat);
+        hullBoxes(tray, m0, [cols * PITCH, PITCH - 0.05, 0, WALL, 0.05, H], m1, [cols * PITCH, 0, 0, WALL, 0.05, H], wallMat);
+        hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, cols * PITCH + 2 * WALL, 0.05, BOT], m1, [-WALL, 0, 0, cols * PITCH + 2 * WALL, 0.05, BOT], wallMat);
+      }
     }
   }
 
-  const flat = (l.tilt_axis === "flat") || (l.tilts || []).every((v) => !v);
   if (flat) {
     lid.add(lidWithHoles(l, inner));
   } else if (colMode) {
@@ -580,12 +618,16 @@ function build(l) {
   const ex = lidEx(l);
   if (flat) {
     if (hasOverlap(l)) {
-      const cw = cols * PITCH + 2 * WALL + 2 * ex;
-      const cd = rows * PITCH + 2 * WALL + 2 * ex;
-      box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, -WALL - FIT - SKIRT / 2, zSk, skirtMat);
-      box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, rows * PITCH + WALL + FIT + SKIRT / 2, zSk, skirtMat);
-      box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, -WALL - FIT - SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
-      box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
+      const cw = cols * PITCH + 2 * WALL;
+      const cd = rows * PITCH + 2 * WALL;
+      const lw = cw + 2 * ex;
+      const ld = cd + 2 * ex;
+      addRoundedRing(
+        lid,
+        -WALL - ex, -WALL - ex, lw, ld,
+        -WALL - FIT, -WALL - FIT, cw + 2 * FIT, cd + 2 * FIT,
+        er, er, SKIRT_H, BOT + inner - SKIRT_H, skirtMat
+      );
     }
   } else {
     for (let i = 0; i < rows - 1; i++) {

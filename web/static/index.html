@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=20">
+  <link rel="stylesheet" href="/style.css?v=21">
   <script type="importmap">
   {
     "imports": {
@@ -93,12 +93,9 @@
             <td><input id="edgemm" type="number" min="0" max="8" step="0.5" value="2"></td>
           </tr>
           <tr>
-            <th><label for="overlap" title="Yes: lid skirt hangs over the tray walls. No: flush lid on the wall tops.">Tray overlap</label></th>
+            <th><label for="overlap" title="When checked, the lid has a rounded overhang that drops over the tray walls. When clear, the lid sits flush on the wall tops.">Top overhang</label></th>
             <td>
-              <select id="overlap">
-                <option value="yes" selected>yes</option>
-                <option value="no">no</option>
-              </select>
+              <input id="overlap" type="checkbox" checked>
             </td>
           </tr>
           <tr>
@@ -160,7 +157,7 @@
     </section>
     <section class="col wide" id="pane-view">
       <h2>3D preview (drag to orbit)</h2>
-      <p class="legend">Magenta = lid/wall cutouts (slots, shaft holes, windows, grills). Green = PCB. Amber = board bosses. Grey = short rim pegs. Lid skirt hangs over the tray walls.</p>
+      <p class="legend">Magenta = lid/wall cutouts (slots, shaft holes, windows, grills). Green = PCB. Amber = board bosses. Grey = short rim pegs. Top overhang is the rounded lid skirt over the tray.</p>
       <p>
         <button type="button" data-view="assembly">Together</button>
         <button type="button" data-view="bottom">Bottom</button>
@@ -219,7 +216,7 @@
       <span>Library</span>
     </button>
   </nav>
-  <script src="/app.js?v=20"></script>
-  <script type="module" src="/preview.js?v=20"></script>
+  <script src="/app.js?v=21"></script>
+  <script type="module" src="/preview.js?v=21"></script>
 </body>
 </html>

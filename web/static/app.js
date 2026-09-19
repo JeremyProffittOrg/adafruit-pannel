@@ -492,7 +492,7 @@ function syncSize() {
   layout.inner_h = numOr($("inner").value, 25);
   layout.edge_style = $("edge")?.value || "round";
   layout.edge_mm = numOr($("edgemm")?.value, 2);
-  layout.overlap = $("overlap") ? $("overlap").value !== "no" : true;
+  layout.overlap = $("overlap") ? $("overlap").checked : true;
   layout.face_tilt = $("facetilt") ? numOr($("facetilt").value, 0) : 0;
   clipDevices();
   renderTilts();
@@ -507,7 +507,7 @@ function setEdgeInputs(style, mm) {
 }
 
 function setOverlap(on) {
-  if ($("overlap")) $("overlap").value = on ? "yes" : "no";
+  if ($("overlap")) $("overlap").checked = !!on;
 }
 
 function setFaceTilt(deg) {
@@ -770,8 +770,8 @@ function renderBOM() {
   lines.push({
     qty: 1,
     item: layout.overlap !== false
-      ? "Lid (printed, face on bed, skirt overlaps tray)"
-      : "Lid (printed, face on bed, flush — no overlap)",
+      ? "Lid (printed, face on bed, rounded top overhang)"
+      : "Lid (printed, face on bed, flush — no overhang)",
     url: "",
   });
   const screws = {};

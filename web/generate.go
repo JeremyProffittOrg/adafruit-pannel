@@ -375,9 +375,9 @@ func rowFlat(l Layout, r int) bool {
 
 func lidBomItem(l Layout) string {
 	if l.Overlap {
-		return "Lid (printed, face on bed, skirt overlaps tray)"
+		return "Lid (printed, face on bed, rounded top overhang)"
 	}
-	return "Lid (printed, face on bed, flush — no overlap)"
+	return "Lid (printed, face on bed, flush — no overhang)"
 }
 
 func trayBomItem(l Layout) string {
