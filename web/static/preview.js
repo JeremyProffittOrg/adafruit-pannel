@@ -54,13 +54,27 @@ function hasOverlap(l) {
 function lidEx(l) {
   return hasOverlap(l) ? EX : 0;
 }
-function hangXs(cols) {
-  const span = (cols || 1) * PITCH;
-  if (span > 28) {
-    const inset = Math.min(PITCH / 2, span / 2 - 6);
-    return [inset, span - inset];
-  }
-  return [span / 2];
+function hangOrientAngle(orient) {
+  if (orient === "up") return Math.PI;
+  if (orient === "left") return Math.PI / 2;
+  if (orient === "right") return -Math.PI / 2;
+  return 0;
+}
+function addHangMarker(parent, localX, localY, localZ, wallRotZ, orient, cutMat) {
+  const g = new THREE.Group();
+  g.position.set(localX, localY, localZ);
+  g.rotation.z = wallRotZ;
+  const inner = new THREE.Group();
+  inner.rotation.x = Math.PI / 2;
+  inner.rotation.z = hangOrientAngle(orient);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(4.25, 4.25, WALL + 2, 20), cutMat);
+  head.position.y = 7;
+  const slot = new THREE.Mesh(new THREE.BoxGeometry(4.2, 12, WALL + 2), cutMat);
+  slot.position.y = 1;
+  inner.add(head);
+  inner.add(slot);
+  g.add(inner);
+  parent.add(g);
 }
 function lidLY0(l, i) {
   const ex = lidEx(l);
@@ -286,6 +300,7 @@ function build(l) {
   const pcbC = 0x166534;
   const bossC = 0xf59e0b;
   const lidRows = [];
+  const trayRows = [];
 
   const wallMat = new THREE.MeshLambertMaterial({ color: wallC });
   function box(parent, w, h, d, x, y, z, mat) {
@@ -309,18 +324,32 @@ function build(l) {
     if (i === 0) box(row, cw, WALL, H, cols * PITCH / 2, -WALL / 2, H / 2);
     if (i === rows - 1) box(row, cw, WALL, H, cols * PITCH / 2, PITCH + WALL / 2, H / 2);
     tray.add(row);
-    if (i === rows - 1 && l.hang !== false) {
-      const cutMat = new THREE.MeshBasicMaterial({ color: CUT });
-      for (const x of hangXs(cols)) {
-        const g = new THREE.Group();
-        g.position.set(x, PITCH + WALL / 2, H - 12);
-        const head = new THREE.Mesh(new THREE.CylinderGeometry(4.25, 4.25, WALL + 2, 20), cutMat);
-        head.position.z = 7;
-        const slot = new THREE.Mesh(new THREE.BoxGeometry(4.2, WALL + 2, 12), cutMat);
-        slot.position.z = 1;
-        g.add(head);
-        g.add(slot);
-        row.add(g);
+    trayRows[i] = row;
+  }
+  const hangList = Array.isArray(l.hangs)
+    ? l.hangs
+    : (l.hang === false ? [] : [
+      { side: "back", pos: 0, orient: "down" },
+      { side: "back", pos: Math.max(0, cols - 1), orient: "down" },
+    ]);
+  if (hangList.length) {
+    const cutMat = new THREE.MeshBasicMaterial({ color: CUT });
+    const zc = H - 12;
+    for (const h of hangList) {
+      const pos = (Number(h.pos) || 0) + 0.5;
+      const orient = h.orient || "down";
+      if (h.side === "back" && trayRows[rows - 1]) {
+        addHangMarker(trayRows[rows - 1], pos * PITCH, PITCH + WALL / 2, zc, 0, orient, cutMat);
+      } else if (h.side === "front" && trayRows[0]) {
+        addHangMarker(trayRows[0], pos * PITCH, -WALL / 2, zc, Math.PI, orient, cutMat);
+      } else if (h.side === "left") {
+        const r = Math.min(rows - 1, Math.max(0, Math.floor(h.pos || 0)));
+        const ly = (pos - r) * PITCH;
+        if (trayRows[r]) addHangMarker(trayRows[r], -WALL / 2, ly, zc, Math.PI / 2, orient, cutMat);
+      } else if (h.side === "right") {
+        const r = Math.min(rows - 1, Math.max(0, Math.floor(h.pos || 0)));
+        const ly = (pos - r) * PITCH;
+        if (trayRows[r]) addHangMarker(trayRows[r], cols * PITCH + WALL / 2, ly, zc, -Math.PI / 2, orient, cutMat);
       }
     }
   }

@@ -59,6 +59,7 @@ type Layout struct {
 	EdgeMM    float64      `json:"edge_mm"`
 	Hang      bool         `json:"hang"`
 	Overlap   bool         `json:"overlap"`
+	Hangs     []PlacedHang `json:"hangs"`
 	Devices   []PlacedDev  `json:"devices"`
 	Walls     []PlacedWall `json:"walls"`
 }
@@ -73,6 +74,28 @@ type PlacedWall struct {
 	Side string `json:"side"`
 	ID   string `json:"id"`
 	Pos  int    `json:"pos"`
+}
+
+type PlacedHang struct {
+	Side   string `json:"side"`
+	Pos    int    `json:"pos"`
+	Orient string `json:"orient"`
+}
+
+func effectiveHangs(l Layout) []PlacedHang {
+	if len(l.Hangs) > 0 {
+		return l.Hangs
+	}
+	if !l.Hang {
+		return nil
+	}
+	if l.Cols > 1 {
+		return []PlacedHang{
+			{Side: "back", Pos: 0, Orient: "down"},
+			{Side: "back", Pos: l.Cols - 1, Orient: "down"},
+		}
+	}
+	return []PlacedHang{{Side: "back", Pos: 0, Orient: "down"}}
 }
 
 func scadEscape(s string) string {
@@ -112,8 +135,38 @@ func writeLayout(path, part string, l Layout) error {
 	fmt.Fprintf(&b, "PART = \"%s\";\n", scadEscape(part))
 	fmt.Fprintf(&b, "COLS = %d;\nROWS = %d;\nINNER_H = %.3f;\n", l.Cols, l.Rows, l.InnerH)
 	fmt.Fprintf(&b, "EDGE_STYLE = \"%s\";\nEDGE_MM = %.3f;\n", scadEscape(l.EdgeStyle), l.EdgeMM)
-	fmt.Fprintf(&b, "HANG = %d;\n", map[bool]int{true: 1, false: 0}[l.Hang])
+	hangs := effectiveHangs(l)
+	fmt.Fprintf(&b, "HANG = %d;\n", map[bool]int{true: 1, false: 0}[len(hangs) > 0])
 	fmt.Fprintf(&b, "OVERLAP = %d;\n", map[bool]int{true: 1, false: 0}[l.Overlap])
+	fmt.Fprintf(&b, "NHANG = %d;\n", len(hangs))
+	if len(hangs) > 0 {
+		b.WriteString("HANG_SIDE = [")
+		for i, h := range hangs {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(&b, `"%s"`, scadEscape(h.Side))
+		}
+		b.WriteString("];\nHANG_POS = [")
+		for i, h := range hangs {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			fmt.Fprintf(&b, "%d", h.Pos)
+		}
+		b.WriteString("];\nHANG_ORIENT = [")
+		for i, h := range hangs {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			o := h.Orient
+			if o == "" {
+				o = "down"
+			}
+			fmt.Fprintf(&b, `"%s"`, scadEscape(o))
+		}
+		b.WriteString("];\n")
+	}
 	b.WriteString("TILTS = [")
 	for i, t := range l.Tilts[:l.Rows] {
 		if i > 0 {
@@ -225,13 +278,7 @@ func lidBomItem(l Layout) string {
 }
 
 func hangCount(l Layout) int {
-	if !l.Hang {
-		return 0
-	}
-	if float64(l.Cols)*25.4 > 28 {
-		return 2
-	}
-	return 1
+	return len(effectiveHangs(l))
 }
 
 func postCount(l Layout) int {
@@ -313,7 +360,7 @@ func bomLines(l Layout) []bomLine {
 		out = append(out, bomLine{n, "M3 screw from below (tray into lid peg)", "hardware", ""})
 	}
 	if n := hangCount(l); n > 0 {
-		out = append(out, bomLine{n, "Wall screw for back keyhole (#8 / M4)", "hardware", ""})
+		out = append(out, bomLine{n, "Wall screw for keyhole (#8 / M4)", "hardware", ""})
 	}
 	out = append(out, pcbScrewLines(l)...)
 	qty := map[string]int{}

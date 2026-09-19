@@ -6,11 +6,14 @@ let layout = {
   inner_h: 25,
   edge_style: "round",
   edge_mm: 2,
-  hang: true,
   overlap: true,
   tilts: [0, 0, 0, 0],
   devices: [],
   walls: [],
+  hangs: [
+    { side: "back", pos: 0, orient: "down" },
+    { side: "back", pos: 4, orient: "down" },
+  ],
 };
 window.PANEL_LAYOUT = layout;
 
@@ -37,18 +40,22 @@ function cloneLayout(src) {
   l.inner_h = numOr(l.inner_h, 25);
   l.edge_style = l.edge_style || "round";
   l.edge_mm = numOr(l.edge_mm, 2);
-  l.hang = l.hang !== false;
   l.overlap = l.overlap !== false;
+  if (!Array.isArray(l.hangs)) {
+    l.hangs = l.hang === false ? [] : defaultHangs(l.cols);
+  }
   return l;
 }
 
-function hangXs(cols) {
-  const span = (cols || 1) * 25.4;
-  if (span > 28) {
-    const inset = Math.min(25.4 / 2, span / 2 - 6);
-    return [inset, span - inset];
+function defaultHangs(cols) {
+  const n = cols || 1;
+  if (n > 1) {
+    return [
+      { side: "back", pos: 0, orient: "down" },
+      { side: "back", pos: n - 1, orient: "down" },
+    ];
   }
-  return [span / 2];
+  return [{ side: "back", pos: 0, orient: "down" }];
 }
 
 function clipDevices() {
@@ -240,13 +247,33 @@ function renderWalls() {
   renderBOM();
 }
 
+function renderHangs() {
+  const ul = $("hangs");
+  if (!ul) return;
+  ul.innerHTML = "";
+  if (!Array.isArray(layout.hangs)) layout.hangs = [];
+  layout.hangs.forEach((h, i) => {
+    const li = document.createElement("li");
+    li.textContent = `${h.side} cell ${h.pos}, slot ${h.orient || "down"} `;
+    const rm = document.createElement("button");
+    rm.textContent = "remove";
+    rm.onclick = () => {
+      layout.hangs.splice(i, 1);
+      renderHangs();
+    };
+    li.appendChild(rm);
+    ul.appendChild(li);
+  });
+  bumpPreview();
+  renderBOM();
+}
+
 function syncSize() {
   layout.cols = numOr($("cols").value, 1);
   layout.rows = numOr($("rows").value, 1);
   layout.inner_h = numOr($("inner").value, 25);
   layout.edge_style = $("edge")?.value || "round";
   layout.edge_mm = numOr($("edgemm")?.value, 2);
-  layout.hang = $("hang") ? $("hang").checked : true;
   layout.overlap = $("overlap") ? $("overlap").value !== "no" : true;
   clipDevices();
   renderTilts();
@@ -258,10 +285,6 @@ function syncSize() {
 function setEdgeInputs(style, mm) {
   if ($("edge")) $("edge").value = style || "round";
   if ($("edgemm")) $("edgemm").value = numOr(mm, 2);
-}
-
-function setHang(on) {
-  if ($("hang")) $("hang").checked = !!on;
 }
 
 function setOverlap(on) {
@@ -278,7 +301,6 @@ $("rows").addEventListener("input", syncSize);
 $("inner").addEventListener("input", syncSize);
 $("edge").addEventListener("change", syncSize);
 $("edgemm").addEventListener("input", syncSize);
-$("hang")?.addEventListener("change", syncSize);
 $("overlap")?.addEventListener("change", syncSize);
 $("devfilter").addEventListener("input", fillDevices);
 $("add-wall").addEventListener("click", () => {
@@ -289,6 +311,15 @@ $("add-wall").addEventListener("click", () => {
   });
   renderWalls();
 });
+$("add-hang")?.addEventListener("click", () => {
+  if (!Array.isArray(layout.hangs)) layout.hangs = [];
+  layout.hangs.push({
+    side: $("hang-side").value,
+    pos: Number($("hang-pos").value) || 0,
+    orient: $("hang-orient").value || "down",
+  });
+  renderHangs();
+});
 $("preset-sq").addEventListener("click", () => {
   currentCaseId = "";
   saveFolderId = $("folder")?.value || "";
@@ -297,11 +328,11 @@ $("preset-sq").addEventListener("click", () => {
   $("rows").value = 4;
   $("inner").value = 25;
   setEdgeInputs("round", 2);
-  setHang(true);
   setOverlap(true);
   clearNotes();
   layout = {
-    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, overlap: true, tilts: [0, 0, 0, 0], walls: [],
+    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, tilts: [0, 0, 0, 0], walls: [],
+    hangs: defaultHangs(5),
     devices: [
       { id: "neoslider", c: 0, r: 0 },
       { id: "neoslider", c: 1, r: 0 },
@@ -311,6 +342,7 @@ $("preset-sq").addEventListener("click", () => {
     ],
   };
   syncSize();
+  renderHangs();
 });
 $("preset-tilt").addEventListener("click", () => {
   currentCaseId = "";
@@ -320,16 +352,17 @@ $("preset-tilt").addEventListener("click", () => {
   $("rows").value = 6;
   $("inner").value = 25;
   setEdgeInputs("round", 2);
-  setHang(true);
   setOverlap(true);
   clearNotes();
   layout = {
-    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, overlap: true,
+    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true,
     tilts: [0, 0, 0, 30, 30, -30],
     devices: [],
     walls: [],
+    hangs: defaultHangs(4),
   };
   syncSize();
+  renderHangs();
 });
 $("go").addEventListener("click", async () => {
   const btn = $("go");
@@ -404,8 +437,8 @@ function renderBOM() {
   if (firstTilt && lastTilt) posts += layout.cols > 1 ? 2 * (layout.cols - 1) : 2;
   else if (firstTilt || lastTilt) posts += layout.cols > 1 ? (layout.cols - 1) : 1;
   if (posts) lines.push({ qty: posts, item: "M3 screw from below (tray into lid peg)", url: "" });
-  if (layout.hang !== false) {
-    lines.push({ qty: hangXs(layout.cols).length, item: "Wall screw for back keyhole (#8 / M4)", url: "" });
+  if ((layout.hangs || []).length) {
+    lines.push({ qty: layout.hangs.length, item: "Wall screw for keyhole (#8 / M4)", url: "" });
   }
   for (const lab of Object.keys(screws).sort()) {
     lines.push({ qty: screws[lab], item: lab, url: "" });
@@ -460,10 +493,10 @@ function applyCase(rec) {
   $("rows").value = layout.rows;
   $("inner").value = layout.inner_h;
   setEdgeInputs(layout.edge_style, layout.edge_mm);
-  setHang(layout.hang !== false);
   setOverlap(layout.overlap !== false);
   syncSize();
   renderWalls();
+  renderHangs();
   loadNotes().catch((e) => { $("status").textContent = String(e); });
 }
 
@@ -476,11 +509,11 @@ function resetOpenCase() {
   $("rows").value = 4;
   $("inner").value = 25;
   setEdgeInputs("round", 2);
-  setHang(true);
   setOverlap(true);
-  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, hang: true, overlap: true, tilts: [0, 0, 0, 0], devices: [], walls: [] };
+  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
   syncSize();
   renderWalls();
+  renderHangs();
 }
 
 async function refreshFolders() {

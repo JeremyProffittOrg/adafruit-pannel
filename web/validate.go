@@ -92,6 +92,24 @@ func validateLayout(l *Layout) error {
 			return fmt.Errorf("wall position out of range")
 		}
 	}
+	if len(l.Hangs) > 16 {
+		return fmt.Errorf("too many hang holes")
+	}
+	for _, h := range l.Hangs {
+		switch h.Side {
+		case "left", "right", "front", "back":
+		default:
+			return fmt.Errorf("hang side must be left, right, front, or back")
+		}
+		switch h.Orient {
+		case "", "down", "up", "left", "right":
+		default:
+			return fmt.Errorf("hang orientation must be down, up, left, or right")
+		}
+		if h.Pos < 0 || h.Pos > 32 {
+			return fmt.Errorf("hang position out of range")
+		}
+	}
 	return nil
 }
 

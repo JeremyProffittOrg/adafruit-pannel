@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=13">
+  <link rel="stylesheet" href="/style.css?v=14">
   <script type="importmap">
   {
     "imports": {
@@ -93,10 +93,6 @@
             <td><input id="edgemm" type="number" min="0" max="8" step="0.5" value="2"></td>
           </tr>
           <tr>
-            <th><label for="hang" title="Two keyholes in the back wall. Drop the case onto wall screws, then down.">Hang holes</label></th>
-            <td><input id="hang" type="checkbox" checked></td>
-          </tr>
-          <tr>
             <th><label for="overlap" title="Yes: lid skirt hangs over the tray walls. No: flush lid on the wall tops.">Tray overlap</label></th>
             <td>
               <select id="overlap">
@@ -111,6 +107,23 @@
         </tbody>
         <tbody id="tilts"></tbody>
       </table>
+      <h2>Hang holes</h2>
+      <p class="legend">Keyholes through a wall. Slot direction is which way the case drops onto the screws.</p>
+      <select id="hang-side">
+        <option value="back">back</option>
+        <option value="front">front</option>
+        <option value="left">left</option>
+        <option value="right">right</option>
+      </select>
+      <select id="hang-orient">
+        <option value="down">slot down</option>
+        <option value="up">slot up</option>
+        <option value="left">slot left</option>
+        <option value="right">slot right</option>
+      </select>
+      <label>Cell along wall <input id="hang-pos" type="number" min="0" value="0"></label>
+      <button type="button" id="add-hang">Add hang hole</button>
+      <ul id="hangs"></ul>
       <h2>Presets</h2>
       <button type="button" id="preset-sq">3 sliders + 2 quad rotaries</button>
       <button type="button" id="preset-tilt">3 flat, 2 at +30, 1 at -30</button>
@@ -178,7 +191,7 @@
       <span>Library</span>
     </button>
   </nav>
-  <script src="/app.js?v=13"></script>
-  <script type="module" src="/preview.js?v=13"></script>
+  <script src="/app.js?v=14"></script>
+  <script type="module" src="/preview.js?v=14"></script>
 </body>
 </html>

@@ -55,8 +55,8 @@ func TestBuildZipIncludesCad(t *testing.T) {
 			scad = b.String()
 		}
 	}
-	if !bytes.Contains([]byte(scad), []byte("HANG = 1;")) {
-		t.Fatalf("job scad missing HANG = 1:\n%s", scad)
+	if !bytes.Contains([]byte(scad), []byte("NHANG = 2;")) {
+		t.Fatalf("job scad missing NHANG = 2:\n%s", scad)
 	}
 	if !bytes.Contains([]byte(scad), []byte("OVERLAP = 1;")) {
 		t.Fatalf("job scad missing OVERLAP = 1:\n%s", scad)

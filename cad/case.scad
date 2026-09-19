@@ -35,7 +35,8 @@ C_NWALL    = is_undef(NWALL)      ? 0 : NWALL;
 C_TILTS    = is_undef(TILTS)      ? [for (i=[0:C_ROWS-1]) 0] : TILTS;
 C_EDGE     = is_undef(EDGE_STYLE) ? "round" : EDGE_STYLE;
 C_EDGE_MM  = is_undef(EDGE_MM)    ? 2.0 : EDGE_MM;
-C_HANG     = is_undef(HANG)       ? 1    : HANG;  // 1 = keyholes in the back wall
+C_HANG     = is_undef(HANG)       ? 1    : HANG;  // legacy: 1 = default back keyholes
+C_NHANG    = is_undef(NHANG)      ? 0    : NHANG;
 C_OVERLAP  = is_undef(OVERLAP)    ? 1    : OVERLAP; // 1 = lid skirt hangs over the tray
 $fn = 28;
 
@@ -294,12 +295,17 @@ module tray_wall_cuts() {
         }
 }
 
-// Two keyholes through the back wall so the case hangs on screws.
-// Head circle at the top; drop the case onto the screws, then down.
+// Keyholes through a chosen wall. Slot direction is which way the
+// case drops onto the screws: down, up, left, or right.
 function hang_xs() =
     let (span = C_COLS * C_PITCH,
          inset = min(C_PITCH / 2, span / 2 - 6))
         (span > 28) ? [inset, span - inset] : [span / 2];
+
+function hang_rot(orient) =
+    (orient == "up") ? 180 :
+    (orient == "left") ? 90 :
+    (orient == "right") ? -90 : 0;
 
 module hang_keyhole_2d() {
     hull() {
@@ -312,14 +318,45 @@ module hang_keyhole_2d() {
     }
 }
 
+module hang_cut(orient) {
+    linear_extrude(C_WALL + 2, center=true)
+        rotate(hang_rot(orient)) hang_keyhole_2d();
+}
+
+module hang_one(side, pos, orient) {
+    zc = C_WALL_H - 12;
+    if (side == "back")
+        at_row(C_ROWS - 1)
+            translate([(pos + 0.5) * C_PITCH, C_PITCH + C_WALL / 2, zc])
+                rotate([90, 0, 0]) hang_cut(orient);
+    else if (side == "front")
+        at_row(0)
+            translate([(pos + 0.5) * C_PITCH, -C_WALL / 2, zc])
+                rotate([90, 0, 180]) hang_cut(orient);
+    else if (side == "left") {
+        r = min(C_ROWS - 1, max(0, floor(pos)));
+        ly = (pos - r + 0.5) * C_PITCH;
+        at_row(r)
+            translate([-C_WALL / 2, ly, zc])
+                rotate([90, 0, 90]) hang_cut(orient);
+    } else {
+        r = min(C_ROWS - 1, max(0, floor(pos)));
+        ly = (pos - r + 0.5) * C_PITCH;
+        at_row(r)
+            translate([C_COLS * C_PITCH + C_WALL / 2, ly, zc])
+                rotate([90, 0, -90]) hang_cut(orient);
+    }
+}
+
 module hang_holes() {
-    if (C_HANG)
+    if (C_NHANG > 0)
+        for (i = [0:C_NHANG - 1])
+            hang_one(HANG_SIDE[i], HANG_POS[i], HANG_ORIENT[i]);
+    else if (C_HANG)
         at_row(C_ROWS - 1)
             for (x = hang_xs())
                 translate([x, C_PITCH + C_WALL / 2, C_WALL_H - 12])
-                    rotate([90, 0, 0])
-                        linear_extrude(C_WALL + 2, center=true)
-                            hang_keyhole_2d();
+                    rotate([90, 0, 0]) hang_cut("down");
 }
 
 module tray_extras() {
