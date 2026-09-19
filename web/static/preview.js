@@ -793,11 +793,17 @@ function init() {
   };
   window.addEventListener("resize", sizeView);
   if (window.ResizeObserver) new ResizeObserver(sizeView).observe(el);
-  document.querySelectorAll("[data-view]").forEach((b) => {
-    b.addEventListener("click", () => {
-      viewMode = b.getAttribute("data-view");
-      rebuildPreview();
+  function setViewMode(mode) {
+    viewMode = mode || "assembly";
+    document.querySelectorAll("[data-view]").forEach((b) => {
+      const on = b.getAttribute("data-view") === viewMode;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
     });
+    rebuildPreview();
+  }
+  document.querySelectorAll("[data-view]").forEach((b) => {
+    b.addEventListener("click", () => setViewMode(b.getAttribute("data-view")));
   });
   (function loop() {
     requestAnimationFrame(loop);

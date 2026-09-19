@@ -511,12 +511,19 @@ function renderGrid() {
     for (let c = 0; c < vis.cols; c++) {
       const el = document.createElement("div");
       el.className = "cell";
-      if (c >= layout.cols || r >= layout.rows) el.classList.add("grow");
+      const growC = c >= layout.cols;
+      const growR = r >= layout.rows;
+      if (growC) el.classList.add("grow", "grow-col");
+      if (growR) el.classList.add("grow", "grow-row");
       el.style.gridColumn = String(c + 1);
       el.style.gridRow = String(r + 1);
       el.dataset.c = String(c);
       el.dataset.r = String(r);
-      el.setAttribute("aria-label", `cell column ${c} row ${r}`);
+      let cellLab = `cell column ${c} row ${r}`;
+      if (growC && growR) cellLab = "grow corner";
+      else if (growC) cellLab = "grow column";
+      else if (growR) cellLab = "grow row";
+      el.setAttribute("aria-label", cellLab);
       el.addEventListener("click", () => {
         if (skipClick) {
           skipClick = false;
@@ -548,16 +555,19 @@ function renderGrid() {
     actions.className = "part-actions";
     const dup = document.createElement("button");
     dup.type = "button";
-    dup.textContent = "dup";
+    dup.textContent = "+";
     dup.title = "Duplicate";
+    dup.setAttribute("aria-label", "Duplicate");
     dup.addEventListener("click", (e) => {
       e.stopPropagation();
       duplicatePlaced(hit);
     });
     const rm = document.createElement("button");
     rm.type = "button";
-    rm.textContent = "remove";
+    rm.className = "danger";
+    rm.textContent = "×";
     rm.title = "Remove";
+    rm.setAttribute("aria-label", "Remove");
     rm.addEventListener("click", (e) => {
       e.stopPropagation();
       removePlaced(hit);

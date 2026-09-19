@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=23">
+  <link rel="stylesheet" href="/style.css?v=24">
   <script type="importmap">
   {
     "imports": {
@@ -72,8 +72,9 @@
             <th><label for="casetitle">Title</label></th>
             <td><input id="casetitle" placeholder="name this case"></td>
           </tr>
+          <tr><th class="section" colspan="2">Grid</th></tr>
           <tr>
-            <th><label for="autosize" title="When checked, columns and rows follow the parts. Uncheck to set the grid by hand.">Auto columns and rows</label></th>
+            <th><label for="autosize" title="When checked, columns and rows follow the parts. Uncheck to set the grid by hand.">Auto size</label></th>
             <td>
               <input id="autosize" type="checkbox" checked>
             </td>
@@ -86,6 +87,7 @@
             <th><label for="rows">Rows</label></th>
             <td><input id="rows" type="number" min="1" max="16" value="4" disabled></td>
           </tr>
+          <tr><th class="section" colspan="2">Shell</th></tr>
           <tr>
             <th><label for="inner">Inside mm</label></th>
             <td><input id="inner" type="number" min="10" max="80" value="25"></td>
@@ -105,13 +107,14 @@
             <td><input id="edgemm" type="number" min="0" max="8" step="0.5" value="2"></td>
           </tr>
           <tr>
-            <th><label for="overlap" title="When checked, the lid has a rounded overhang that drops over the tray walls. When clear, the lid sits flush on the wall tops.">Top overhang</label></th>
+            <th><label for="overlap" title="When checked, the lid has a rounded overhang that drops over the tray walls. When clear, the lid sits flush on the wall tops.">Overhang</label></th>
             <td>
               <input id="overlap" type="checkbox" checked>
             </td>
           </tr>
+          <tr><th class="section" colspan="2">Face</th></tr>
           <tr>
-            <th><label for="facetilt" title="0 sits flat. 30 leans the lid 30 deg off the sitting foot. Add hang holes on the bottom, then hang that foot on the wall with the thick end up, to tilt a panel out from the wall.">Face tilt</label></th>
+            <th><label for="facetilt" title="0 is flat. 30 leans the lid off the sitting foot.">Face tilt</label></th>
             <td>
               <select id="facetilt">
                 <option value="0" selected>flat (0°)</option>
@@ -123,87 +126,123 @@
           </tr>
         </tbody>
       </table>
-      <h2>Tilt wizard</h2>
-      <p class="legend">Fold the lid by rows (front to back) or by columns (left to right). Face tilt above is the sitting or hanging wedge, not this fold.</p>
-      <label>Fold
-        <select id="tilt-axis">
-          <option value="flat" selected>flat — no fold</option>
-          <option value="row">by rows — front to back</option>
-          <option value="col">by columns — left to right</option>
-        </select>
-      </label>
-      <p id="tilt-help" class="legend"></p>
-      <div id="tilt-strips"></div>
-      <p id="tilt-actions" hidden>
-        <button type="button" id="tilt-all-0">All 0°</button>
-        <button type="button" id="tilt-all-30">All +30°</button>
-      </p>
-      <h2>Hang holes</h2>
-      <p class="legend">Keyholes through a wall or the sitting foot. Slot direction is which way the case drops onto the screws. Face tilt plus bottom holes: hang the foot on the wall, thick end up, so the panel leans out.</p>
-      <select id="hang-side">
-        <option value="back">back</option>
-        <option value="front">front</option>
-        <option value="left">left</option>
-        <option value="right">right</option>
-        <option value="bottom">bottom (foot)</option>
-      </select>
-      <select id="hang-orient">
-        <option value="down">slot down</option>
-        <option value="up">slot up</option>
-        <option value="left">slot left</option>
-        <option value="right">slot right</option>
-      </select>
-      <label>Cell along wall <input id="hang-pos" type="number" min="0" value="0"></label>
-      <button type="button" id="add-hang">Add hang hole</button>
-      <ul id="hangs"></ul>
-      <h2>Presets</h2>
-      <button type="button" id="preset-sq">3 sliders + 2 quad rotaries</button>
-      <button type="button" id="preset-tilt">3 flat, 2 at +30, 1 at -30</button>
-      <h2>Bill of materials</h2>
-      <table id="bom"><tbody></tbody></table>
-      <h2>Build</h2>
-      <p class="legend">Zip has BOM + OpenSCAD. When this host can render STL, the zip also has case.3mf (tray and lid on one Bambu Studio plate). Print the lid with the visible face on the bed.</p>
-      <button type="button" id="go" class="primary">Download zip</button>
-      <button type="button" id="bambu">Open in Bambu Studio</button>
-      <p id="status" role="status" aria-live="polite"></p>
+      <div class="block" data-block="fold">
+        <h2>Lid fold</h2>
+        <p class="legend">Fold lid by rows or columns, not face tilt.</p>
+        <label>Fold
+          <select id="tilt-axis">
+            <option value="flat" selected>flat — no fold</option>
+            <option value="row">by rows</option>
+            <option value="col">by columns</option>
+          </select>
+        </label>
+        <p id="tilt-help" class="legend"></p>
+        <div id="tilt-strips"></div>
+        <p id="tilt-actions" hidden>
+          <button type="button" id="tilt-all-0">All 0°</button>
+          <button type="button" id="tilt-all-30">All +30°</button>
+        </p>
+      </div>
+      <div class="block" data-block="hang">
+        <h2>Hang</h2>
+        <p class="legend">Keyholes on a wall or foot. Slot is drop direction.</p>
+        <div class="add-row">
+          <label>Wall
+            <select id="hang-side">
+              <option value="back">back</option>
+              <option value="front">front</option>
+              <option value="left">left</option>
+              <option value="right">right</option>
+              <option value="bottom">bottom (foot)</option>
+            </select>
+          </label>
+          <label>Slot
+            <select id="hang-orient">
+              <option value="down">down</option>
+              <option value="up">up</option>
+              <option value="left">left</option>
+              <option value="right">right</option>
+            </select>
+          </label>
+          <label>Cell <input id="hang-pos" type="number" min="0" value="0"></label>
+          <button type="button" id="add-hang">Add hang hole</button>
+        </div>
+        <ul id="hangs"></ul>
+      </div>
+      <div class="block" data-block="presets">
+        <h2>Presets</h2>
+        <button type="button" id="preset-sq">3 sliders + 2 rotaries</button>
+        <button type="button" id="preset-tilt">Folded lid sample</button>
+      </div>
+      <div class="block" data-block="bom">
+        <h2>Parts</h2>
+        <table id="bom"><tbody></tbody></table>
+      </div>
+      <div class="block" data-block="build">
+        <h2>Build</h2>
+        <p class="legend">Zip has BOM, OpenSCAD, and case.3mf when render works.</p>
+        <button type="button" id="go" class="primary">Download zip</button>
+        <button type="button" id="bambu">Open in Bambu Studio</button>
+        <p id="status" role="status" aria-live="polite"></p>
+      </div>
     </section>
     <section class="col side-pane" id="pane-parts" role="tabpanel" aria-labelledby="tab-device">
       <h2>Device</h2>
-      <label>Filter <input id="devfilter" placeholder="name or brand" type="search"></label>
-      <select id="device" size="16"></select>
-      <p>
-        <button type="button" id="add-dev" class="primary">Add device</button>
-        <button type="button" id="devdrag" draggable="true" title="Drag onto the 3D view or the grid">Drag onto 3D or grid</button>
-      </p>
-      <p id="devinfo"></p>
-      <p><a id="devurl" href="#" target="_blank" rel="noopener" hidden>Manufacturer page</a></p>
-      <h2>Cases with this part</h2>
-      <p id="partcases-hint" class="legend">Sign in to list your cases that use this part.</p>
-      <ul id="partcases"></ul>
-      <h2>Wall STEMMA / M5 unit</h2>
-      <select id="wall-dev"></select>
-      <select id="wall-side">
-        <option value="left">left</option>
-        <option value="right">right</option>
-        <option value="front">front</option>
-        <option value="back">back</option>
-      </select>
-      <label>Cell along wall <input id="wall-pos" type="number" min="0" value="1"></label>
-      <button type="button" id="add-wall">Add wall mount</button>
-      <ul id="walls"></ul>
+      <div class="block picker" data-block="catalog">
+        <label>Filter <input id="devfilter" placeholder="name or brand" type="search"></label>
+        <select id="device" size="16" aria-label="Device catalog"></select>
+        <p class="actions">
+          <button type="button" id="add-dev" class="primary">Add device</button>
+          <button type="button" id="devdrag" draggable="true" title="Drag onto the 3D view or the grid">Drag onto 3D or grid</button>
+        </p>
+      </div>
+      <div class="block" data-block="detail">
+        <p id="devinfo"></p>
+        <p><a id="devurl" href="#" target="_blank" rel="noopener" hidden>Manufacturer page</a></p>
+      </div>
+      <div class="block" data-block="used-in">
+        <h2>Used in</h2>
+        <p id="partcases-hint" class="legend">Sign in to list your cases using this part.</p>
+        <ul id="partcases"></ul>
+      </div>
+      <div class="block" data-block="wall">
+        <h2>Wall unit</h2>
+        <div class="add-row">
+          <label>Unit <select id="wall-dev"></select></label>
+          <label>Wall
+            <select id="wall-side">
+              <option value="left">left</option>
+              <option value="right">right</option>
+              <option value="front">front</option>
+              <option value="back">back</option>
+            </select>
+          </label>
+          <label>Cell <input id="wall-pos" type="number" min="0" value="1"></label>
+          <button type="button" id="add-wall">Add wall mount</button>
+        </div>
+        <ul id="walls"></ul>
+      </div>
     </section>
     </aside>
     <section class="col wide" id="pane-view">
-      <h2>3D preview (drag to orbit)</h2>
-      <p class="legend">Magenta = lid/wall cutouts (slots, shaft holes, windows, grills). Green = PCB. Amber = board bosses. Grey = short rim pegs. Top overhang is the rounded lid skirt over the tray.</p>
-      <p>
-        <button type="button" data-view="assembly">Together</button>
-        <button type="button" data-view="bottom">Bottom</button>
-        <button type="button" data-view="top">Top</button>
-      </p>
+      <div class="preview-bar">
+        <h2>3D preview</h2>
+        <div class="view-modes" role="group" aria-label="Case view">
+          <button type="button" data-view="assembly" class="on" aria-pressed="true">Together</button>
+          <button type="button" data-view="bottom" aria-pressed="false">Bottom</button>
+          <button type="button" data-view="top" aria-pressed="false">Top</button>
+        </div>
+      </div>
+      <p class="hint">Drag to orbit. Drop parts on the case.</p>
+      <ul class="swatches" aria-label="Preview colors">
+        <li><span class="swatch cut"></span> Cutouts</li>
+        <li><span class="swatch pcb"></span> PCB</li>
+        <li><span class="swatch boss"></span> Bosses</li>
+        <li><span class="swatch peg"></span> Pegs</li>
+      </ul>
       <div id="view3d"></div>
       <h2>Top layout</h2>
-      <p class="legend">Drag parts on this board or onto the 3D view. Auto size fits columns and rows to the parts. Hover a part to duplicate or remove it.</p>
+      <p class="legend">Drag to place. Dotted + cells grow the board when auto size is on.</p>
       <div id="grid"></div>
     </section>
   </main>
@@ -211,7 +250,7 @@
     <a href="/privacy.html">Privacy</a>
     <span>M3 from below into lid pegs. Lid prints face-down.</span>
   </footer>
-  <script src="/app.js?v=23"></script>
-  <script type="module" src="/preview.js?v=23"></script>
+  <script src="/app.js?v=24"></script>
+  <script type="module" src="/preview.js?v=24"></script>
 </body>
 </html>
