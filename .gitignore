@@ -4,6 +4,13 @@ data/scraped-products.json
 data/pcb/*.brd
 data/pcb/*.json
 docs/preview/
+docs/views/
+docs/_ses-request.json
+docs/_aws*
+docs/_mail*
+docs/_probe.bin
+.mail-stderr.txt
+.mail-stdout.txt
 __pycache__/
 *.pyc
 .DS_Store
