@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
 
 const PITCH = 25.4;
 const WALL = 8;
@@ -46,6 +47,48 @@ function lidWY(l, i, ly) {
 function lidWZ(l, i, ly) {
   const t = (tiltOf(l, i) * Math.PI) / 180;
   return accumZ(l, i) + ly * Math.sin(t) + wallH(l) * Math.cos(t);
+}
+function lidLY0(i) {
+  return (i === 0 ? -WALL - EX : 0);
+}
+function lidLY1(l, i) {
+  const last = i === (l.rows || 1) - 1;
+  const ylen = PITCH + (i === 0 ? WALL : 0) + (last ? WALL : 0);
+  return (i === 0 ? -WALL : 0) + ylen + (last ? EX : 0);
+}
+function rowMatrix(l, i) {
+  const t = (tiltOf(l, i) * Math.PI) / 180;
+  const m = new THREE.Matrix4();
+  m.makeRotationX(t);
+  m.setPosition(0, accumY(l, i), accumZ(l, i));
+  return m;
+}
+function hullBoxes(parent, m0, a, m1, b, mat) {
+  const pts = [];
+  const corners = (x, y, z, w, h, d) => {
+    const out = [];
+    for (const dx of [0, w]) for (const dy of [0, h]) for (const dz of [0, d]) {
+      out.push(new THREE.Vector3(x + dx, y + dy, z + dz));
+    }
+    return out;
+  };
+  for (const p of corners(...a)) pts.push(p.applyMatrix4(m0));
+  for (const p of corners(...b)) pts.push(p.applyMatrix4(m1));
+  parent.add(new THREE.Mesh(new ConvexGeometry(pts), mat));
+}
+function zSkirtSeg(parent, x, y0, z0, y1, z1, mat) {
+  const hx = SKIRT / 2;
+  const pts = [
+    new THREE.Vector3(x - hx, y0, z0),
+    new THREE.Vector3(x + hx, y0, z0),
+    new THREE.Vector3(x - hx, y0, z0 - SKIRT_H),
+    new THREE.Vector3(x + hx, y0, z0 - SKIRT_H),
+    new THREE.Vector3(x - hx, y1, z1),
+    new THREE.Vector3(x + hx, y1, z1),
+    new THREE.Vector3(x - hx, y1, z1 - SKIRT_H),
+    new THREE.Vector3(x + hx, y1, z1 - SKIRT_H),
+  ];
+  parent.add(new THREE.Mesh(new ConvexGeometry(pts), mat));
 }
 
 function roundedRectPath(shape, x, y, w, h, r) {
@@ -241,6 +284,13 @@ function build(l) {
     if (i === rows - 1) box(row, cw, WALL, H, cols * PITCH / 2, PITCH + WALL / 2, H / 2);
     tray.add(row);
   }
+  for (let i = 0; i < rows - 1; i++) {
+    const m0 = rowMatrix(l, i);
+    const m1 = rowMatrix(l, i + 1);
+    hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, WALL, 0.05, H], m1, [-WALL, 0, 0, WALL, 0.05, H], wallMat);
+    hullBoxes(tray, m0, [cols * PITCH, PITCH - 0.05, 0, WALL, 0.05, H], m1, [cols * PITCH, 0, 0, WALL, 0.05, H], wallMat);
+    hullBoxes(tray, m0, [-WALL, PITCH - 0.05, 0, cols * PITCH + 2 * WALL, 0.05, BOT], m1, [-WALL, 0, 0, cols * PITCH + 2 * WALL, 0.05, BOT], wallMat);
+  }
 
   const flat = (l.tilts || []).every((v) => !v);
   if (flat) {
@@ -359,6 +409,7 @@ function build(l) {
 
   const skirtMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
   const zSk = BOT + inner - SKIRT_H / 2;
+  const lidPlateMat = new THREE.MeshLambertMaterial({ color: 0xd6dee8 });
   if (flat) {
     const cw = cols * PITCH + 2 * WALL + 2 * EX;
     const cd = rows * PITCH + 2 * WALL + 2 * EX;
@@ -367,22 +418,36 @@ function build(l) {
     box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, -WALL - FIT - SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
     box(lid, SKIRT, cd - 2 * SKIRT, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, rows * PITCH / 2, zSk, skirtMat);
   } else {
-    for (let i = 0; i < rows; i++) {
-      const rowG = lidRows[i];
-      if (!rowG) continue;
-      const y0 = i === 0 ? -WALL - EX : 0;
-      const yl = PITCH + (i === 0 ? WALL + EX : 0) + (i === rows - 1 ? WALL + EX : 0);
-      box(rowG, SKIRT, yl, SKIRT_H, -WALL - FIT - SKIRT / 2, y0 + yl / 2, zSk, skirtMat);
-      box(rowG, SKIRT, yl, SKIRT_H, cols * PITCH + WALL + FIT + SKIRT / 2, y0 + yl / 2, zSk, skirtMat);
-      if (i === 0 && Math.abs(tiltOf(l, 0)) < 0.05) {
-        const cw = cols * PITCH + 2 * WALL + 2 * EX;
-        box(rowG, cw, SKIRT, SKIRT_H, cols * PITCH / 2, -WALL - FIT - SKIRT / 2, zSk, skirtMat);
-      }
-      if (i === rows - 1 && Math.abs(tiltOf(l, rows - 1)) < 0.05) {
-        const cw = cols * PITCH + 2 * WALL + 2 * EX;
-        box(rowG, cw, SKIRT, SKIRT_H, cols * PITCH / 2, PITCH + WALL + FIT + SKIRT / 2, zSk, skirtMat);
-      }
+    for (let i = 0; i < rows - 1; i++) {
+      const m0 = rowMatrix(l, i);
+      const m1 = rowMatrix(l, i + 1);
+      hullBoxes(
+        lid, m0, [-WALL - EX, PITCH - 0.05, BOT + inner, cols * PITCH + 2 * WALL + 2 * EX, 0.05, TOP],
+        m1, [-WALL - EX, 0, BOT + inner, cols * PITCH + 2 * WALL + 2 * EX, 0.05, TOP],
+        lidPlateMat
+      );
     }
+    const xl = -WALL - EX + SKIRT / 2;
+    const xr = cols * PITCH + WALL + EX - SKIRT / 2;
+    for (let i = 0; i < rows; i++) {
+      const a = { y: lidWY(l, i, lidLY0(i)), z: lidWZ(l, i, lidLY0(i)) };
+      const b = { y: lidWY(l, i, lidLY1(l, i)), z: lidWZ(l, i, lidLY1(l, i)) };
+      zSkirtSeg(lid, xl, a.y, a.z, b.y, b.z, skirtMat);
+      zSkirtSeg(lid, xr, a.y, a.z, b.y, b.z, skirtMat);
+    }
+    for (let i = 0; i < rows - 1; i++) {
+      const a = { y: lidWY(l, i, lidLY1(l, i)), z: lidWZ(l, i, lidLY1(l, i)) };
+      const b = { y: lidWY(l, i + 1, lidLY0(i + 1)), z: lidWZ(l, i + 1, lidLY0(i + 1)) };
+      zSkirtSeg(lid, xl, a.y, a.z, b.y, b.z, skirtMat);
+      zSkirtSeg(lid, xr, a.y, a.z, b.y, b.z, skirtMat);
+    }
+    const cw = cols * PITCH + 2 * WALL + 2 * EX;
+    const yf = lidWY(l, 0, lidLY0(0));
+    const zf = lidWZ(l, 0, lidLY0(0));
+    box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, yf + SKIRT / 2, zf - SKIRT_H / 2, skirtMat);
+    const yb = lidWY(l, rows - 1, lidLY1(l, rows - 1));
+    const zb = lidWZ(l, rows - 1, lidLY1(l, rows - 1));
+    box(lid, cw, SKIRT, SKIRT_H, cols * PITCH / 2, yb - SKIRT / 2, zb - SKIRT_H / 2, skirtMat);
   }
 
   if (viewMode === "bottom") g.add(tray);

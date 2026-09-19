@@ -398,30 +398,54 @@ module row_lid(i) {
             linear_extrude(C_TOP) row_lid_outer_2d(i);
 }
 
-module row_skirt(i) {
-    // Square ring (no edge_rect): a rounded inner on a short row segment
-    // leaves a 2 mm fillet that sits inside the wall and hits the tray.
-    // Tilted rows keep left/right only: a front/back skirt in local Z
-    // collides when the lid drops in world Z.
-    y0 = row_y0(i) - (i==0 ? C_EX : 0);
-    yl = row_ylen(i) + (i==0?C_EX:0) + (i==C_ROWS-1?C_EX:0);
-    iy0 = row_y0(i) - (i==0 ? C_FIT : 0);
-    iyl = row_ylen(i) + (i==0?C_FIT:0) + (i==C_ROWS-1?C_FIT:0);
-    at_row(i)
-        translate([0, 0, C_WALL_H - C_SKIRT_H])
-            linear_extrude(C_SKIRT_H) {
-                if (abs(tilt_of(i)) < 0.05) {
-                    difference() {
-                        translate([-C_WALL - C_EX, y0]) square([lid_w(), yl]);
-                        translate([-C_WALL - C_FIT, iy0])
-                            square([case_w() + 2*C_FIT, iyl]);
-                    }
-                } else {
-                    translate([-C_WALL - C_EX, y0]) square([C_SKIRT, yl]);
-                    translate([C_COLS*C_PITCH + C_WALL + C_FIT, y0])
-                        square([C_SKIRT, yl]);
-                }
+function lid_ly0(i) = row_y0(i) - (i==0 ? C_EX : 0);
+function lid_ly1(i) = row_y0(i) + row_ylen(i) + (i==C_ROWS-1 ? C_EX : 0);
+
+// Shoebox skirt hangs in world -Z so the lid can drop straight down
+// onto a tilted tray. Local-Z skirts on a slope sweep in Y as they drop
+// and eat C_FIT before the pegs engage.
+module wz_skirt_post(x, ly_row, ly, z_off=0) {
+    translate([x, lid_wy(ly_row, ly), lid_wz(ly_row, ly) - C_SKIRT_H + z_off])
+        cube([C_SKIRT, 1.0, C_SKIRT_H]);
+}
+
+module world_z_side_skirts() {
+    xl = -C_WALL - C_EX;
+    xr = C_COLS*C_PITCH + C_WALL + C_FIT;
+    for (i = [0:C_ROWS-1]) {
+        hull() {
+            wz_skirt_post(xl, i, lid_ly0(i));
+            wz_skirt_post(xl, i, lid_ly1(i));
+        }
+        hull() {
+            wz_skirt_post(xr, i, lid_ly0(i));
+            wz_skirt_post(xr, i, lid_ly1(i));
+        }
+    }
+    if (C_ROWS > 1)
+        for (i = [0:C_ROWS-2]) {
+            hull() {
+                wz_skirt_post(xl, i, lid_ly1(i));
+                wz_skirt_post(xl, i+1, lid_ly0(i+1));
             }
+            hull() {
+                wz_skirt_post(xr, i, lid_ly1(i));
+                wz_skirt_post(xr, i+1, lid_ly0(i+1));
+            }
+        }
+}
+
+module world_z_end_skirts() {
+    // Front and back: vertical strips at the lid's outer Y.
+    yf = lid_wy(0, lid_ly0(0));
+    zf = lid_wz(0, lid_ly0(0));
+    translate([-C_WALL - C_EX, yf, zf - C_SKIRT_H])
+        cube([lid_w(), C_SKIRT, C_SKIRT_H]);
+    i = C_ROWS-1;
+    yb = lid_wy(i, lid_ly1(i));
+    zb = lid_wz(i, lid_ly1(i));
+    translate([-C_WALL - C_EX, yb - C_SKIRT, zb - C_SKIRT_H])
+        cube([lid_w(), C_SKIRT, C_SKIRT_H]);
 }
 
 module lid_kink_fill() {
@@ -433,44 +457,19 @@ module lid_kink_fill() {
                 at_row(i+1) translate([-C_WALL - C_EX, 0, C_WALL_H])
                     cube([lid_w(), 0.05, C_TOP]);
             }
-            hull() {
-                at_row(i) translate([-C_WALL - C_EX, C_PITCH-0.05, C_WALL_H - C_SKIRT_H])
-                    cube([C_SKIRT, 0.05, C_SKIRT_H]);
-                at_row(i+1) translate([-C_WALL - C_EX, 0, C_WALL_H - C_SKIRT_H])
-                    cube([C_SKIRT, 0.05, C_SKIRT_H]);
-            }
-            hull() {
-                at_row(i) translate([C_COLS*C_PITCH + C_WALL + C_FIT, C_PITCH-0.05, C_WALL_H - C_SKIRT_H])
-                    cube([C_SKIRT, 0.05, C_SKIRT_H]);
-                at_row(i+1) translate([C_COLS*C_PITCH + C_WALL + C_FIT, 0, C_WALL_H - C_SKIRT_H])
-                    cube([C_SKIRT, 0.05, C_SKIRT_H]);
-            }
         }
-}
-
-module row_skirt_mouth(i) {
-    y0 = row_y0(i) - (i==0 ? C_FIT + C_MOUTH : 0);
-    yl = row_ylen(i) + (i==0?C_FIT+C_MOUTH:0) + (i==C_ROWS-1?C_FIT+C_MOUTH:0);
-    at_row(i)
-        translate([0, 0, C_WALL_H - C_SKIRT_H - 0.05])
-            linear_extrude(1.5)
-                translate([-C_WALL - C_FIT - C_MOUTH, y0])
-                    square([case_w() + 2*(C_FIT + C_MOUTH), yl]);
 }
 
 module top_lid_tilted() {
     difference() {
         union() {
-            for (i = [0:C_ROWS-1]) {
-                row_lid(i);
-                row_skirt(i);
-            }
+            for (i = [0:C_ROWS-1]) row_lid(i);
             lid_kink_fill();
+            world_z_side_skirts();
+            world_z_end_skirts();
             lid_pegs();
             lid_device_bosses();
         }
-        for (i = [0:C_ROWS-1])
-            if (abs(tilt_of(i)) < 0.05) row_skirt_mouth(i);
         lid_device_cuts();
         lid_tap_holes();
     }
