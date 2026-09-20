@@ -4,6 +4,9 @@ data/scraped-products.json
 data/pcb/*.brd
 data/pcb/*.json
 docs/preview/
+docs/promo/
+docs/case-anim.mp4
+docs/site-intro.mp4
 cad/generated/
 cad/out/
 bin/
@@ -20,3 +23,5 @@ __pycache__/
 .DS_Store
 .aws-sam/
 samconfig.toml.bak
+.playwright-mcp/
+print-kits/neoslider-2x-quad/
