@@ -781,7 +781,6 @@ function fillDevices() {
   box.innerHTML = "";
   wsel.innerHTML = "";
   const rest = [];
-  let emptyDev = null;
   for (const d of LIB.devices) {
     byId[d.id] = d;
     if (d.place === "wall") {
@@ -790,10 +789,10 @@ function fillDevices() {
       w.textContent = d.name;
       wsel.appendChild(w);
     }
+    if (d.id === "empty" || d.place === "none") continue;
     const hay = `${d.category} ${d.name} ${d.brand || ""} ${d.id}`.toLowerCase();
-    if (q && d.id !== "empty" && !hay.includes(q)) continue;
-    if (d.id === "empty") emptyDev = d;
-    else rest.push(d);
+    if (q && !hay.includes(q)) continue;
+    rest.push(d);
   }
   const addRow = (d) => {
     const b = document.createElement("button");
@@ -802,7 +801,7 @@ function fillDevices() {
     b.dataset.id = d.id;
     b.draggable = true;
     b.setAttribute("role", "option");
-    b.textContent = d.id === "empty" ? "eraser — click a cell to clear" : `${d.category}: ${d.name}`;
+    b.textContent = `${d.category}: ${d.name}`;
     b.addEventListener("click", () => {
       selectedDeviceId = d.id;
       box.querySelectorAll(".dev").forEach((x) => x.classList.toggle("on", x.dataset.id === d.id));
@@ -824,10 +823,8 @@ function fillDevices() {
     box.appendChild(b);
   };
   for (const d of rest) addRow(d);
-  if (emptyDev) addRow(emptyDev);
   if (keepWall && [...wsel.options].some((o) => o.value === keepWall)) wsel.value = keepWall;
   const ids = rest.map((d) => d.id);
-  if (emptyDev) ids.push(emptyDev.id);
   if (keepDev && ids.includes(keepDev)) selectedDeviceId = keepDev;
   else selectedDeviceId = ids[0] || "";
   box.querySelectorAll(".dev").forEach((x) => x.classList.toggle("on", x.dataset.id === selectedDeviceId));
