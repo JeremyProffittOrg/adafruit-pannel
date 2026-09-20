@@ -1116,8 +1116,11 @@ function openJobFile(url, name) {
   const a = document.createElement("a");
   a.href = url;
   if (name) a.download = name;
+  a.target = "_blank";
   a.rel = "noopener";
+  document.body.appendChild(a);
   a.click();
+  a.remove();
 }
 
 function openBambu(threemfURL) {
