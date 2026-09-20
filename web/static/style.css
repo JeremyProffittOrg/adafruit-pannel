@@ -94,11 +94,27 @@ header h1 { margin: 0; font-size: 16px; letter-spacing: 0.06em; text-transform: 
   box-shadow: none;
 }
 .brand:hover .tip, .brand:focus-within .tip, .brand.open .tip { display: block; }
-.build-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.build-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1 1 auto; min-width: 0; }
 .build-bar button { margin: 0; }
 header #status {
-  margin: 6px 0 0;
-  min-height: 1.2em;
+  margin: 0;
+  min-height: 0;
+  flex: 1 1 10rem;
+}
+@keyframes waitspin {
+  to { transform: rotate(360deg); }
+}
+button.waiting::before {
+  content: "";
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: waitspin 0.7s linear infinite;
 }
 .who { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; color: var(--muted); }
 .who a { color: var(--cyan); }
@@ -619,4 +635,5 @@ a { color: var(--cyan); }
 }
 @media (prefers-reduced-motion: reduce) {
   .traces { animation: none; }
+  button.waiting::before { animation: none; border-right-color: currentColor; opacity: 0.6; }
 }

@@ -1150,9 +1150,17 @@ $("preset-tilt").addEventListener("click", () => {
   syncSize();
   renderHangs();
 });
-function setBuildBusy(on) {
-  if ($("go")) $("go").disabled = on;
-  if ($("bambu")) $("bambu").disabled = on;
+function setBuildBusy(on, which) {
+  if ($("go")) {
+    $("go").disabled = on;
+    $("go").classList.toggle("waiting", on && which === "zip");
+    $("go").setAttribute("aria-busy", on && which === "zip" ? "true" : "false");
+  }
+  if ($("bambu")) {
+    $("bambu").disabled = on;
+    $("bambu").classList.toggle("waiting", on && which === "bambu");
+    $("bambu").setAttribute("aria-busy", on && which === "bambu" ? "true" : "false");
+  }
 }
 
 function openJobFile(url, name) {
@@ -1200,7 +1208,7 @@ async function pollRenderJob(jobId, want) {
 }
 
 async function startBuild(want) {
-  setBuildBusy(true);
+  setBuildBusy(true, want);
   $("status").textContent = want === "bambu" ? "Starting Bambu project…" : "Starting zip…";
   try {
     const payload = { ...layout, title: $("casetitle")?.value || "" };

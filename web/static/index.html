@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=29">
+  <link rel="stylesheet" href="/style.css?v=30">
   <script type="importmap">
   {
     "imports": {
@@ -26,6 +26,7 @@
       <div class="build-bar">
         <button type="button" id="go" class="primary">Download</button>
         <button type="button" id="bambu">Open in Bambu Studio</button>
+        <p id="status" role="status" aria-live="polite"></p>
       </div>
       <div class="who">
         <span id="wholabel">not signed in</span>
@@ -33,7 +34,6 @@
         <a id="logoutbtn" href="/logout" hidden>Sign out</a>
       </div>
     </div>
-    <p id="status" role="status" aria-live="polite"></p>
   </header>
   <main>
     <aside class="side" id="side">
@@ -263,7 +263,7 @@
     <a href="/privacy.html">Privacy</a>
     <span>M3 from below into lid pegs. Lid prints face-down.</span>
   </footer>
-  <script src="/app.js?v=29"></script>
-  <script type="module" src="/preview.js?v=29"></script>
+  <script src="/app.js?v=30"></script>
+  <script type="module" src="/preview.js?v=30"></script>
 </body>
 </html>
