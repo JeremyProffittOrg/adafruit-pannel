@@ -9,6 +9,10 @@ let layout = {
   overlap: true,
   auto_size: true,
   face_tilt: 0,
+  bottom_t: 3,
+  base_grid_size: 0,
+  base_grid_pitch: 25,
+  base_grid_through: false,
   tilt_axis: "flat",
   tilts: [0, 0, 0, 0],
   devices: [],
@@ -18,6 +22,9 @@ let layout = {
     { side: "back", pos: 4, orient: "down" },
   ],
 };
+let selectedDeviceId = "";
+const NAME_ADJ = ["amber","copper","cyan","navy","quiet","solid","brisk","clear","fair","keen","plain","sharp","true","vivid","wild"];
+const NAME_NOUN = ["slider","rotary","panel","tray","lid","grid","boss","peg","shell","case","deck","rack","board","frame","plate"];
 window.PANEL_LAYOUT = layout;
 
 function bumpPreview() {
@@ -45,8 +52,13 @@ function cloneLayout(src) {
   l.edge_mm = numOr(l.edge_mm, 2);
   l.overlap = l.overlap !== false;
   l.auto_size = l.auto_size !== false;
-  l.face_tilt = Math.max(0, Math.min(45, numOr(l.face_tilt, 0)));
-  if (l.tilt_axis !== "row" && l.tilt_axis !== "col") l.tilt_axis = "flat";
+  l.face_tilt = Math.max(0, Math.min(90, numOr(l.face_tilt, 0)));
+  l.bottom_t = Math.max(0, Math.min(10, numOr(l.bottom_t, 3)));
+  l.base_grid_size = numOr(l.base_grid_size, 0);
+  l.base_grid_pitch = numOr(l.base_grid_pitch, 25);
+  l.base_grid_through = !!l.base_grid_through;
+  l.tilt_axis = "flat";
+  if (Array.isArray(l.tilts)) l.tilts = l.tilts.map(() => 0);
   if (!Array.isArray(l.hangs)) {
     l.hangs = l.hang === false ? [] : defaultHangs(l.cols);
   }
@@ -199,7 +211,7 @@ function placeDevice(id, c, r, skip) {
 }
 
 function addSelectedDevice() {
-  const id = $("device")?.value;
+  const id = selectedDeviceId || $("device")?.value;
   const def = canPlaceId(id);
   if (!def) {
     if ($("status")) $("status").textContent = "Pick a lid or floor part in the list, then Add device.";
@@ -309,6 +321,7 @@ function applyFold(i, deg, live) {
 }
 
 function renderTilts() {
+  return;
   padTilts();
   const axis = $("tilt-axis");
   if (axis) {
@@ -442,6 +455,23 @@ function updateSizeLock() {
   if ($("autosize")) $("autosize").checked = on;
   if ($("cols")) $("cols").disabled = on;
   if ($("rows")) $("rows").disabled = on;
+  if ($("size-manual")) $("size-manual").hidden = on;
+}
+
+function newCaseName() {
+  const a = NAME_ADJ[Math.floor(Math.random() * NAME_ADJ.length)];
+  const n = NAME_NOUN[Math.floor(Math.random() * NAME_NOUN.length)];
+  return `${a}-${n}`;
+}
+
+function setCaseTitle(s) {
+  if ($("casetitle")) $("casetitle").value = s;
+  if ($("libtitle")) $("libtitle").value = s;
+}
+
+function syncGridHoleRow() {
+  const t = numOr($("bottomt")?.value, 3);
+  if ($("gridrow")) $("gridrow").hidden = t <= 0.05;
 }
 
 function deviceBounds() {
@@ -728,7 +758,7 @@ function renderGrid() {
 }
 
 function stamp(c, r) {
-  const id = $("device").value;
+  const id = selectedDeviceId;
   const def = byId[id];
   if (!def || def.id === "empty") {
     layout.devices = layout.devices.filter((d) => {
@@ -743,15 +773,15 @@ function stamp(c, r) {
 }
 
 function fillDevices() {
-  const sel = $("device");
+  const box = $("device");
   const wsel = $("wall-dev");
   const q = ($("devfilter")?.value || "").toLowerCase();
-  const keepDev = sel.value;
+  const keepDev = selectedDeviceId;
   const keepWall = wsel.value;
-  sel.innerHTML = "";
+  box.innerHTML = "";
   wsel.innerHTML = "";
   const rest = [];
-  let emptyOpt = null;
+  let emptyDev = null;
   for (const d of LIB.devices) {
     byId[d.id] = d;
     if (d.place === "wall") {
@@ -762,24 +792,46 @@ function fillDevices() {
     }
     const hay = `${d.category} ${d.name} ${d.brand || ""} ${d.id}`.toLowerCase();
     if (q && d.id !== "empty" && !hay.includes(q)) continue;
-    const opt = document.createElement("option");
-    opt.value = d.id;
-    opt.textContent = d.id === "empty" ? "eraser — click a cell to clear" : `${d.category}: ${d.name}`;
-    if (d.id === "empty") emptyOpt = opt;
-    else rest.push(opt);
+    if (d.id === "empty") emptyDev = d;
+    else rest.push(d);
   }
-  for (const o of rest) sel.appendChild(o);
-  if (emptyOpt) sel.appendChild(emptyOpt);
-  if (keepDev && [...sel.options].some((o) => o.value === keepDev)) sel.value = keepDev;
-  else if (![...sel.options].some((o) => o.value === sel.value) && rest[0]) sel.value = rest[0].value;
-  if (keepWall && [...wsel.options].some((o) => o.value === keepWall)) wsel.value = keepWall;
-  if (!sel.dataset.bound) {
-    sel.dataset.bound = "1";
-    sel.addEventListener("change", () => {
-      showDevice(byId[sel.value]);
+  const addRow = (d) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "dev";
+    b.dataset.id = d.id;
+    b.draggable = true;
+    b.setAttribute("role", "option");
+    b.textContent = d.id === "empty" ? "eraser — click a cell to clear" : `${d.category}: ${d.name}`;
+    b.addEventListener("click", () => {
+      selectedDeviceId = d.id;
+      box.querySelectorAll(".dev").forEach((x) => x.classList.toggle("on", x.dataset.id === d.id));
+      showDevice(d);
     });
-  }
-  if (sel.value) showDevice(byId[sel.value]);
+    b.addEventListener("dblclick", () => addSelectedDevice());
+    b.addEventListener("dragstart", (e) => {
+      selectedDeviceId = d.id;
+      const sz = partSize(d.id);
+      liveDrag = { dx: sz.dx, dy: sz.dy };
+      e.dataTransfer.setData("application/x-panel-device", d.id);
+      e.dataTransfer.setData("text/plain", d.id);
+      e.dataTransfer.effectAllowed = "copy";
+    });
+    b.addEventListener("dragend", () => {
+      liveDrag = null;
+      clearDropHint();
+    });
+    box.appendChild(b);
+  };
+  for (const d of rest) addRow(d);
+  if (emptyDev) addRow(emptyDev);
+  if (keepWall && [...wsel.options].some((o) => o.value === keepWall)) wsel.value = keepWall;
+  const ids = rest.map((d) => d.id);
+  if (emptyDev) ids.push(emptyDev.id);
+  if (keepDev && ids.includes(keepDev)) selectedDeviceId = keepDev;
+  else selectedDeviceId = ids[0] || "";
+  box.querySelectorAll(".dev").forEach((x) => x.classList.toggle("on", x.dataset.id === selectedDeviceId));
+  if (selectedDeviceId) showDevice(byId[selectedDeviceId]);
 }
 
 function showDevice(d) {
@@ -855,8 +907,12 @@ function syncSize() {
   layout.edge_mm = numOr($("edgemm")?.value, 2);
   layout.overlap = $("overlap") ? $("overlap").checked : true;
   layout.face_tilt = $("facetilt") ? numOr($("facetilt").value, 0) : 0;
+  layout.bottom_t = $("bottomt") ? numOr($("bottomt").value, 3) : 3;
+  layout.base_grid_size = $("gridsize") ? numOr($("gridsize").value, 0) : 0;
+  layout.base_grid_pitch = $("gridpitch") ? numOr($("gridpitch").value, 25) : 25;
+  layout.base_grid_through = $("gridthru") ? $("gridthru").checked : false;
   updateSizeLock();
-  renderTilts();
+  syncGridHoleRow();
   renderGrid();
   bumpPreview();
   renderBOM();
@@ -872,7 +928,7 @@ function setOverlap(on) {
 }
 
 function setFaceTilt(deg) {
-  const n = Math.max(0, Math.min(45, numOr(deg, 0)));
+  const n = Math.max(0, Math.min(90, numOr(deg, 0)));
   const el = $("facetilt");
   if (!el) return;
   const s = String(n);
@@ -898,28 +954,10 @@ $("edge").addEventListener("change", syncSize);
 $("edgemm").addEventListener("input", syncSize);
 $("overlap")?.addEventListener("change", syncSize);
 $("facetilt")?.addEventListener("change", syncSize);
-$("tilt-axis")?.addEventListener("change", () => {
-  layout.tilt_axis = $("tilt-axis").value || "flat";
-  padTilts();
-  renderTilts();
-  bumpPreview();
-  renderBOM();
-});
-$("tilt-all-0")?.addEventListener("click", () => {
-  padTilts();
-  for (let i = 0; i < nStrips(); i++) layout.tilts[i] = 0;
-  renderTilts();
-  bumpPreview();
-  renderBOM();
-});
-$("tilt-match")?.addEventListener("click", () => {
-  padTilts();
-  const a = Number(layout.tilts[foldSel]) || 0;
-  for (let i = 0; i < nStrips(); i++) layout.tilts[i] = a;
-  renderTilts();
-  bumpPreview();
-  renderBOM();
-});
+$("bottomt")?.addEventListener("input", syncSize);
+$("gridsize")?.addEventListener("change", syncSize);
+$("gridpitch")?.addEventListener("change", syncSize);
+$("gridthru")?.addEventListener("change", syncSize);
 document.addEventListener("pointermove", (e) => {
   if (!foldDrag) return;
   const dx = e.clientX - foldDrag.startX;
@@ -955,18 +993,19 @@ $("add-wall").addEventListener("click", () => {
   renderWalls();
 });
 $("add-dev")?.addEventListener("click", () => addSelectedDevice());
-$("device")?.addEventListener("dblclick", () => addSelectedDevice());
-$("devdrag")?.addEventListener("dragstart", (e) => {
-  const id = $("device")?.value || "";
-  const sz = partSize(id);
-  liveDrag = { dx: sz.dx, dy: sz.dy };
-  e.dataTransfer.setData("application/x-panel-device", id);
-  e.dataTransfer.setData("text/plain", id);
-  e.dataTransfer.effectAllowed = "copy";
-});
-$("devdrag")?.addEventListener("dragend", () => {
-  liveDrag = null;
-  clearDropHint();
+document.querySelectorAll("[data-nudge]").forEach((b) => {
+  b.addEventListener("click", () => {
+    const id = b.getAttribute("data-nudge");
+    const dir = Number(b.getAttribute("data-dir")) || 1;
+    const el = $(id);
+    if (!el) return;
+    const step = numOr(el.step, 1) || 1;
+    const min = el.min === "" ? -Infinity : numOr(el.min, -Infinity);
+    const max = el.max === "" ? Infinity : numOr(el.max, Infinity);
+    el.value = String(Math.min(max, Math.max(min, numOr(el.value, 0) + dir * step)));
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 });
 
 function dropPayload(e) {
@@ -1062,16 +1101,18 @@ $("add-hang")?.addEventListener("click", () => {
 $("preset-sq").addEventListener("click", () => {
   currentCaseId = "";
   saveFolderId = $("folder")?.value || "";
-  if ($("casetitle")) $("casetitle").value = "3 sliders + 2 quad rotaries";
+  setCaseTitle("3 sliders + 2 quad rotaries");
   $("cols").value = 5;
   $("rows").value = 4;
   $("inner").value = 25;
+  if ($("bottomt")) $("bottomt").value = 3;
+  if ($("gridsize")) $("gridsize").value = 0;
   setEdgeInputs("round", 2);
   setOverlap(true);
   setFaceTilt(0);
   clearNotes();
   layout = {
-    cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], walls: [],
+    cols: 5, rows: 4, inner_h: 25, bottom_t: 3, base_grid_size: 0, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], walls: [],
     hangs: defaultHangs(5),
     devices: [
       { id: "neoslider", c: 0, r: 0 },
@@ -1088,20 +1129,22 @@ $("preset-sq").addEventListener("click", () => {
 $("preset-tilt").addEventListener("click", () => {
   currentCaseId = "";
   saveFolderId = $("folder")?.value || "";
-  if ($("casetitle")) $("casetitle").value = "tilt demo";
-  $("cols").value = 4;
-  $("rows").value = 6;
+  setCaseTitle("leaning-panel");
+  $("cols").value = 5;
+  $("rows").value = 4;
   $("inner").value = 25;
+  if ($("bottomt")) $("bottomt").value = 3;
+  if ($("gridsize")) $("gridsize").value = 0;
   setEdgeInputs("round", 2);
   setOverlap(true);
-  setFaceTilt(0);
+  setFaceTilt(30);
   clearNotes();
   layout = {
-    cols: 4, rows: 6, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 0, tilt_axis: "row",
-    tilts: [0, 0, 0, 30, 30, -30],
+    cols: 5, rows: 4, inner_h: 25, bottom_t: 3, base_grid_size: 0, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 30, tilt_axis: "flat",
+    tilts: [0, 0, 0, 0],
     devices: [],
     walls: [],
-    hangs: defaultHangs(4),
+    hangs: defaultHangs(5),
   };
   updateSizeLock();
   syncSize();
@@ -1277,34 +1320,40 @@ async function api(path, opt) {
 function applyCase(rec) {
   currentCaseId = rec.id;
   saveFolderId = rec.folder_id || "";
-  $("casetitle").value = rec.title || "";
+  setCaseTitle(rec.title || "");
   if ($("folder")) $("folder").value = rec.folder_id || "";
   layout = cloneLayout(rec.layout);
   updateSizeLock();
   $("cols").value = layout.cols;
   $("rows").value = layout.rows;
   $("inner").value = layout.inner_h;
+  if ($("bottomt")) $("bottomt").value = layout.bottom_t;
+  if ($("gridsize")) $("gridsize").value = String(layout.base_grid_size || 0);
+  if ($("gridpitch")) $("gridpitch").value = String(layout.base_grid_pitch || 25);
+  if ($("gridthru")) $("gridthru").checked = !!layout.base_grid_through;
   setEdgeInputs(layout.edge_style, layout.edge_mm);
   setOverlap(layout.overlap !== false);
   setFaceTilt(layout.face_tilt);
+  if ($("notetext")) $("notetext").value = rec.notes || "";
   syncSize();
   renderWalls();
   renderHangs();
-  loadNotes().catch((e) => { $("status").textContent = String(e); });
 }
 
 function resetOpenCase() {
   currentCaseId = "";
   saveFolderId = $("folder")?.value || "";
-  $("casetitle").value = "";
+  setCaseTitle("");
   clearNotes();
   $("cols").value = 5;
   $("rows").value = 4;
   $("inner").value = 25;
+  if ($("bottomt")) $("bottomt").value = 3;
+  if ($("gridsize")) $("gridsize").value = 0;
   setEdgeInputs("round", 2);
   setOverlap(true);
   setFaceTilt(0);
-  layout = { cols: 5, rows: 4, inner_h: 25, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
+  layout = { cols: 5, rows: 4, inner_h: 25, bottom_t: 3, base_grid_size: 0, edge_style: "round", edge_mm: 2, overlap: true, auto_size: true, face_tilt: 0, tilt_axis: "flat", tilts: [0, 0, 0, 0], devices: [], walls: [], hangs: defaultHangs(5) };
   updateSizeLock();
   syncSize();
   renderWalls();
@@ -1325,20 +1374,71 @@ async function refreshFolders() {
   if (cur) sel.value = cur;
 }
 
+function treeIconBtn(label, title, fn) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "icon";
+  b.textContent = label;
+  b.title = title;
+  b.setAttribute("aria-label", title);
+  b.onclick = (ev) => { ev.stopPropagation(); fn(); };
+  return b;
+}
+
+async function createFolderAt(parentHint) {
+  const name = window.prompt(parentHint ? `New folder in ${parentHint}` : "New folder name");
+  if (!name || !name.trim()) return;
+  try {
+    const f = await api("/api/folders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    saveFolderId = f.id;
+    if ($("folder")) $("folder").value = f.id;
+    await refreshFolders();
+    await refreshCases();
+  } catch (e) {
+    $("status").textContent = String(e);
+  }
+}
+
+async function deleteFolderById(id, name) {
+  if (!id) return;
+  if (!confirm(`Delete folder “${name}”? Cases move to no folder.`)) return;
+  try {
+    await api(`/api/folders/${id}`, { method: "DELETE" });
+    if (saveFolderId === id) saveFolderId = "";
+    await refreshFolders();
+    await refreshCases();
+  } catch (e) {
+    $("status").textContent = String(e);
+  }
+}
+
 async function refreshCases() {
-  const folder = $("folder").value;
-  const q = folder ? `/api/cases?folder=${encodeURIComponent(folder)}` : "/api/cases";
-  const list = await api(q);
-  const ul = $("caselist");
-  ul.innerHTML = "";
-  for (const rec of list) {
-    const li = document.createElement("li");
-    li.textContent = rec.title;
-    li.onclick = () => applyCase(rec);
-    const rm = document.createElement("button");
-    rm.textContent = "delete";
-    rm.onclick = async (ev) => {
-      ev.stopPropagation();
+  const folders = await api("/api/folders").catch(() => []);
+  const all = await api("/api/cases").catch(() => []);
+  const tree = $("casetree");
+  if (!tree) return;
+  tree.innerHTML = "";
+  const byFolder = new Map();
+  byFolder.set("", []);
+  for (const f of folders) byFolder.set(f.id, []);
+  for (const rec of all) {
+    const fid = rec.folder_id || "";
+    if (!byFolder.has(fid)) byFolder.set(fid, []);
+    byFolder.get(fid).push(rec);
+  }
+  const addCaseRow = (rec) => {
+    const row = document.createElement("div");
+    row.className = "row case" + (rec.id === currentCaseId ? " on" : "");
+    row.title = rec.notes || rec.title || "";
+    const name = document.createElement("span");
+    name.className = "grow";
+    name.textContent = rec.title;
+    row.appendChild(name);
+    row.appendChild(treeIconBtn("×", "Delete case", async () => {
       if (!confirm(`Delete case “${rec.title}”?`)) return;
       try {
         await api(`/api/cases/${rec.id}`, { method: "DELETE" });
@@ -1350,9 +1450,34 @@ async function refreshCases() {
       } catch (e) {
         $("status").textContent = String(e);
       }
+    }));
+    row.onclick = () => applyCase(rec);
+    tree.appendChild(row);
+  };
+  const root = document.createElement("div");
+  root.className = "row folder";
+  const rootName = document.createElement("span");
+  rootName.className = "grow";
+  rootName.textContent = "Cases";
+  root.appendChild(rootName);
+  root.appendChild(treeIconBtn("+", "New folder", () => createFolderAt("")));
+  tree.appendChild(root);
+  for (const rec of byFolder.get("") || []) addCaseRow(rec);
+  for (const f of folders) {
+    const row = document.createElement("div");
+    row.className = "row folder" + (saveFolderId === f.id ? " on" : "");
+    const name = document.createElement("span");
+    name.className = "grow";
+    name.textContent = f.name;
+    row.appendChild(name);
+    row.appendChild(treeIconBtn("+", "New folder", () => createFolderAt(f.name)));
+    row.appendChild(treeIconBtn("×", "Delete folder", () => deleteFolderById(f.id, f.name)));
+    row.onclick = () => {
+      saveFolderId = f.id;
+      if ($("folder")) $("folder").value = f.id;
     };
-    li.appendChild(rm);
-    ul.appendChild(li);
+    tree.appendChild(row);
+    for (const rec of byFolder.get(f.id) || []) addCaseRow(rec);
   }
 }
 
@@ -1424,8 +1549,7 @@ async function bootLibrary() {
   saveFolderId = $("folder")?.value || "";
   await refreshFolders();
   await refreshCases();
-  const dev = $("device")?.value;
-  if (dev) await loadPartCases(dev);
+  if (selectedDeviceId) await loadPartCases(selectedDeviceId);
 }
 
 $("dosearch")?.addEventListener("click", async () => {
@@ -1497,10 +1621,12 @@ async function persistCase(asCopy) {
   $("savecase") && ($("savecase").disabled = true);
   $("saveas") && ($("saveas").disabled = true);
   try {
+    if ($("libtitle") && $("libtitle").value.trim()) setCaseTitle($("libtitle").value.trim());
     const rec = {
       id: asCopy ? undefined : (currentCaseId || undefined),
       title: $("casetitle").value.trim() || "Untitled case",
       folder_id: saveFolderId,
+      notes: ($("notetext")?.value || "").trim(),
       layout,
     };
     const updating = !asCopy && currentCaseId;
@@ -1530,27 +1656,37 @@ $("saveas")?.addEventListener("click", async () => {
 });
 $("newcase")?.addEventListener("click", () => {
   resetOpenCase();
+  setCaseTitle(newCaseName());
   $("status").textContent = "new empty case — not saved yet";
 });
-$("addnote")?.addEventListener("click", async () => {
-  if (!currentCaseId) {
-    $("status").textContent = "save the case before adding a note";
-    return;
-  }
-  const text = $("notetext").value.trim();
-  if (!text) return;
-  try {
-    await api(`/api/cases/${currentCaseId}/notes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    $("notetext").value = "";
-    await loadNotes();
-  } catch (e) {
-    $("status").textContent = String(e);
-  }
+$("casetitle")?.addEventListener("input", () => {
+  if ($("libtitle")) $("libtitle").value = $("casetitle").value;
 });
+$("libtitle")?.addEventListener("input", () => {
+  if ($("casetitle")) $("casetitle").value = $("libtitle").value;
+});
+let notesTimer = 0;
+$("notetext")?.addEventListener("input", () => {
+  clearTimeout(notesTimer);
+  notesTimer = setTimeout(() => {
+    if (!currentCaseId) return;
+    persistCase(false).catch((e) => { $("status").textContent = String(e); });
+  }, 500);
+});
+$("layout-dock")?.addEventListener("click", () => {
+  const pane = $("pane-view");
+  if (!pane) return;
+  const beside = !pane.classList.contains("beside");
+  pane.classList.toggle("beside", beside);
+  try { localStorage.panelLayoutDock = beside ? "beside" : "below"; } catch { /* ignore */ }
+  $("layout-dock").textContent = beside ? "Move Layout Below" : "Move Layout Beside";
+});
+try {
+  if (localStorage.panelLayoutDock === "beside") {
+    $("pane-view")?.classList.add("beside");
+    if ($("layout-dock")) $("layout-dock").textContent = "Move Layout Below";
+  }
+} catch { /* ignore */ }
 
 const TAB_NAMES = ["library", "case", "device", "bom"];
 function setTab(name) {

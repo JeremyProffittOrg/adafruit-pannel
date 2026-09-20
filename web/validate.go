@@ -37,17 +37,22 @@ func validateLayout(l *Layout) error {
 	default:
 		return fmt.Errorf("edge must be round, chamfer, or square")
 	}
-	if l.FaceTilt < 0 || l.FaceTilt > 45 {
-		return fmt.Errorf("face tilt must be 0 to 45 degrees")
+	if l.FaceTilt < 0 || l.FaceTilt > 90 {
+		return fmt.Errorf("face tilt must be 0 to 90 degrees")
 	}
-	switch l.TiltAxis {
-	case "", "row", "col", "flat":
+	if bt := bottomT(*l); bt < 0 || bt > 10 {
+		return fmt.Errorf("base thickness must be 0 to 10 mm")
+	}
+	switch l.BaseGridSize {
+	case 0, 2, 3, 4, 5:
 	default:
-		return fmt.Errorf("tilt must be flat, by rows, or by columns")
+		return fmt.Errorf("base grid hole must be 2, 3, 4, or 5 mm")
 	}
-	for _, t := range l.Tilts {
-		if t < -45 || t > 45 {
-			return fmt.Errorf("strip tilt must be -45 to 45 degrees")
+	if l.BaseGridSize > 0 {
+		switch l.BaseGridPitch {
+		case 0, 10, 20, 25, 30, 40, 50:
+		default:
+			return fmt.Errorf("base grid pitch must be 10, 20, 25, 30, 40, or 50 mm")
 		}
 	}
 	if len(l.Devices) > 64 || len(l.Walls) > 32 {

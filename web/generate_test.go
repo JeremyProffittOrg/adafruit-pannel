@@ -64,6 +64,12 @@ func TestBuildZipIncludesCad(t *testing.T) {
 	if !bytes.Contains([]byte(scad), []byte("FACE_TILT = 0.000;")) {
 		t.Fatalf("job scad missing FACE_TILT = 0.000:\n%s", scad)
 	}
+	if !bytes.Contains([]byte(scad), []byte("BOTTOM_T = 3.000;")) {
+		t.Fatalf("job scad missing BOTTOM_T = 3.000:\n%s", scad)
+	}
+	if !bytes.Contains([]byte(scad), []byte("TILT_AXIS = \"flat\";")) {
+		t.Fatalf("job scad missing TILT_AXIS = flat:\n%s", scad)
+	}
 	if have["bottom.stl"] && !have["case.3mf"] {
 		t.Fatal("zip has STLs but no case.3mf")
 	}
@@ -116,6 +122,53 @@ func TestFaceTiltBottomHangZip(t *testing.T) {
 	}
 	if !bytes.Contains([]byte(md), []byte("sitting face tilt 30 deg")) {
 		t.Fatalf("BOM missing face tilt: %s", md)
+	}
+}
+
+func TestBottomTAndGridSCAD(t *testing.T) {
+	if err := loadCatalog(".."); err != nil {
+		t.Fatal(err)
+	}
+	zero := 0.0
+	body, err := buildZipBytes(Layout{
+		Cols: 5, Rows: 4, InnerH: 25, FaceTilt: 90,
+		BottomT:         &zero,
+		BaseGridSize:    3,
+		BaseGridPitch:   25,
+		BaseGridThrough: true,
+		Overlap:         true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	scad := ""
+	for _, f := range zr.File {
+		if f.Name != "cad/generated/job-bottom.scad" {
+			continue
+		}
+		r, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		b := new(bytes.Buffer)
+		_, _ = b.ReadFrom(r)
+		r.Close()
+		scad = b.String()
+	}
+	for _, want := range []string{
+		"FACE_TILT = 90.000;",
+		"BOTTOM_T = 0.000;",
+		"BASE_GRID_D = 3.000;",
+		"BASE_GRID_P = 25.000;",
+		"BASE_GRID_THRU = 1;",
+	} {
+		if !bytes.Contains([]byte(scad), []byte(want)) {
+			t.Fatalf("job scad missing %s:\n%s", want, scad)
+		}
 	}
 }
 

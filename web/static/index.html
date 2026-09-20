@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Panel case builder</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css?v=28">
+  <link rel="stylesheet" href="/style.css?v=29">
   <script type="importmap">
   {
     "imports": {
@@ -47,23 +47,23 @@
       <h2>Library</h2>
       <p id="libhint">Sign in to save folders and cases.</p>
       <div id="libbody" hidden>
-        <label>Search <input id="q" type="search" placeholder="cases, notes, parts"></label>
-        <button type="button" id="dosearch">Search</button>
+        <p class="actions"><button type="button" id="newcase">New case</button></p>
+        <div class="case-now">
+          <input id="libtitle" placeholder="case name" aria-label="Current case name">
+          <button type="button" id="savecase" class="icon" title="Save" aria-label="Save">&#128190;</button>
+          <button type="button" id="saveas" class="icon" title="Save as copy" aria-label="Save as copy">&#128196;</button>
+        </div>
+        <textarea id="notetext" rows="3" placeholder="notes (autosave)"></textarea>
+        <div id="casetree" class="tree" role="tree" aria-label="Saved cases"></div>
+        <div class="search-line">
+          <input id="q" type="search" placeholder="search cases, notes, parts" aria-label="Search">
+          <button type="button" id="dosearch">Search</button>
+        </div>
         <ul id="hits"></ul>
-        <h2>Folders / projects</h2>
-        <select id="folder"></select>
-        <input id="foldername" placeholder="new folder name">
-        <button type="button" id="addfolder">Add folder</button>
-        <button type="button" id="delfolder">Delete folder</button>
-        <h2>Saved cases</h2>
-        <ul id="caselist"></ul>
-        <button type="button" id="newcase">New case</button>
-        <button type="button" id="savecase" class="primary">Save</button>
-        <button type="button" id="saveas">Save as copy</button>
-        <h2>Notes</h2>
-        <textarea id="notetext" rows="3" placeholder="note on this case"></textarea>
-        <button type="button" id="addnote">Add note</button>
-        <ul id="notelist"></ul>
+        <select id="folder" hidden></select>
+        <input id="foldername" hidden>
+        <ul id="caselist" hidden></ul>
+        <ul id="notelist" hidden></ul>
       </div>
     </section>
     <section class="col side-pane" id="pane-case" role="tabpanel" aria-labelledby="tab-case">
@@ -80,45 +80,40 @@
           </tr>
           <tr><th class="section" colspan="2">Grid</th></tr>
           <tr>
-            <th><label for="autosize" title="When checked, columns and rows follow the parts. Uncheck to set the grid by hand.">Auto size</label></th>
-            <td>
-              <input id="autosize" type="checkbox" checked>
+            <th>Size</th>
+            <td class="inline">
+              <label class="chk" title="When checked, columns and rows follow the parts.">
+                <input id="autosize" type="checkbox" checked> Auto size
+              </label>
+              <span id="size-manual" hidden>
+                <label>Columns <span class="stepper"><input id="cols" type="number" min="1" max="16" value="5"><span class="nudge"><button type="button" data-nudge="cols" data-dir="1" aria-label="Columns up">+</button><button type="button" data-nudge="cols" data-dir="-1" aria-label="Columns down">-</button></span></span></label>
+                <label>Rows <span class="stepper"><input id="rows" type="number" min="1" max="16" value="4"><span class="nudge"><button type="button" data-nudge="rows" data-dir="1" aria-label="Rows up">+</button><button type="button" data-nudge="rows" data-dir="-1" aria-label="Rows down">-</button></span></span></label>
+              </span>
             </td>
-          </tr>
-          <tr>
-            <th><label for="cols">Columns</label></th>
-            <td><input id="cols" type="number" min="1" max="16" value="5" disabled></td>
-          </tr>
-          <tr>
-            <th><label for="rows">Rows</label></th>
-            <td><input id="rows" type="number" min="1" max="16" value="4" disabled></td>
           </tr>
           <tr><th class="section" colspan="2">Shell</th></tr>
           <tr>
-            <th><label for="inner">Inside mm</label></th>
-            <td><input id="inner" type="number" min="10" max="80" value="25"></td>
-          </tr>
-          <tr>
-            <th><label for="edge">Edge</label></th>
-            <td>
-              <select id="edge">
-                <option value="round" selected>round</option>
-                <option value="chamfer">chamfer</option>
-                <option value="square">square</option>
-              </select>
+            <th>Inside height</th>
+            <td class="inline">
+              <span class="stepper"><input id="inner" type="number" min="8" max="80" value="25"><span class="nudge"><button type="button" data-nudge="inner" data-dir="1" aria-label="Inside height up">+</button><button type="button" data-nudge="inner" data-dir="-1" aria-label="Inside height down">-</button></span></span>
+              <label>Edge
+                <select id="edge">
+                  <option value="round" selected>round</option>
+                  <option value="chamfer">chamfer</option>
+                  <option value="square">square</option>
+                </select>
+              </label>
             </td>
           </tr>
           <tr>
-            <th><label for="edgemm">Edge mm</label></th>
-            <td><input id="edgemm" type="number" min="0" max="8" step="0.5" value="2"></td>
-          </tr>
-          <tr>
-            <th><label for="overlap" title="When checked, the lid has a rounded overhang that drops over the tray walls. When clear, the lid sits flush on the wall tops.">Overhang</label></th>
-            <td>
-              <input id="overlap" type="checkbox" checked>
+            <th>Edge</th>
+            <td class="inline">
+              <span class="stepper"><input id="edgemm" type="number" min="0" max="8" step="0.5" value="2"><span class="nudge"><button type="button" data-nudge="edgemm" data-dir="1" aria-label="Edge mm up">+</button><button type="button" data-nudge="edgemm" data-dir="-1" aria-label="Edge mm down">-</button></span></span>
+              <label class="chk" title="When checked, the lid has a rounded overhang that drops over the tray walls.">
+                <input id="overlap" type="checkbox" checked> Overhang
+              </label>
             </td>
           </tr>
-          <tr><th class="section" colspan="2">Face</th></tr>
           <tr>
             <th><label for="facetilt" title="0 is flat. 30 leans the lid off the sitting foot.">Face tilt</label></th>
             <td>
@@ -127,30 +122,43 @@
                 <option value="15">15°</option>
                 <option value="30">30°</option>
                 <option value="45">45°</option>
+                <option value="60">60°</option>
+                <option value="75">75°</option>
+                <option value="90">90°</option>
               </select>
+            </td>
+          </tr>
+          <tr>
+            <th><label for="bottomt">Base mm</label></th>
+            <td class="inline">
+              <span class="stepper"><input id="bottomt" type="number" min="0" max="10" step="0.5" value="3"><span class="nudge"><button type="button" data-nudge="bottomt" data-dir="1" aria-label="Base mm up">+</button><button type="button" data-nudge="bottomt" data-dir="-1" aria-label="Base mm down">-</button></span></span>
+            </td>
+          </tr>
+          <tr id="gridrow">
+            <th>Grid holes</th>
+            <td class="inline">
+              <select id="gridsize" aria-label="Hole size">
+                <option value="0" selected>off</option>
+                <option value="2">2 mm</option>
+                <option value="3">3 mm</option>
+                <option value="4">4 mm</option>
+                <option value="5">5 mm</option>
+              </select>
+              <select id="gridpitch" aria-label="Hole pitch">
+                <option value="10">10 mm</option>
+                <option value="20">20 mm</option>
+                <option value="25" selected>25 mm</option>
+                <option value="30">30 mm</option>
+                <option value="40">40 mm</option>
+                <option value="50">50 mm</option>
+              </select>
+              <label class="chk"><input id="gridthru" type="checkbox"> Through</label>
             </td>
           </tr>
         </tbody>
       </table>
-      <div class="block" data-block="fold">
-        <h2>Lid fold</h2>
-        <p class="legend">Set an angle on each row or column.</p>
-        <label>Fold
-          <select id="tilt-axis">
-            <option value="flat" selected>flat</option>
-            <option value="row">by rows</option>
-            <option value="col">by columns</option>
-          </select>
-        </label>
-        <p id="tilt-help" class="legend"></p>
-        <div id="tilt-strips"></div>
-        <p id="tilt-actions" hidden>
-          <button type="button" id="tilt-all-0">Flatten</button>
-          <button type="button" id="tilt-match" disabled>Match all</button>
-        </p>
-      </div>
       <div class="block" data-block="hang">
-        <h2>Hang</h2>
+        <h2>Wall hang</h2>
         <p class="legend">Keyholes on a wall or foot. Slot is drop direction.</p>
         <div class="add-row">
           <label>Wall
@@ -178,7 +186,7 @@
       <div class="block" data-block="presets">
         <h2>Presets</h2>
         <button type="button" id="preset-sq">3 sliders + 2 rotaries</button>
-        <button type="button" id="preset-tilt">Folded lid sample</button>
+        <button type="button" id="preset-tilt">Leaning 30°</button>
       </div>
     </section>
     <section class="col side-pane" id="pane-bom" role="tabpanel" aria-labelledby="tab-bom">
@@ -190,10 +198,9 @@
       <h2>Device</h2>
       <div class="block picker" data-block="catalog">
         <label>Filter <input id="devfilter" placeholder="name or brand" type="search"></label>
-        <select id="device" size="16" aria-label="Device catalog"></select>
+        <div id="device" class="devlist" role="listbox" aria-label="Device catalog"></div>
         <p class="actions">
           <button type="button" id="add-dev" class="primary">Add device</button>
-          <button type="button" id="devdrag" draggable="true" title="Drag onto the 3D view or the grid">Drag onto 3D or grid</button>
         </p>
       </div>
       <div class="block" data-block="detail">
@@ -225,6 +232,7 @@
     </section>
     </aside>
     <section class="col wide" id="pane-view">
+      <div class="preview-col">
       <div class="preview-bar">
         <h2>3D preview</h2>
         <div class="view-modes" role="group" aria-label="Case view">
@@ -232,25 +240,30 @@
           <button type="button" data-view="bottom" aria-pressed="false">Bottom</button>
           <button type="button" data-view="top" aria-pressed="false">Top</button>
         </div>
+        <ul class="swatches" aria-label="Preview colors">
+          <li><span class="swatch cut"></span> Cutouts</li>
+          <li><span class="swatch pcb"></span> PCB</li>
+          <li><span class="swatch boss"></span> Bosses</li>
+          <li><span class="swatch peg"></span> Pegs</li>
+        </ul>
       </div>
-      <p class="hint">Drag to orbit. Drop parts on the case.</p>
-      <ul class="swatches" aria-label="Preview colors">
-        <li><span class="swatch cut"></span> Cutouts</li>
-        <li><span class="swatch pcb"></span> PCB</li>
-        <li><span class="swatch boss"></span> Bosses</li>
-        <li><span class="swatch peg"></span> Pegs</li>
-      </ul>
       <div id="view3d"></div>
-      <h2>Top layout</h2>
-      <p class="legend">Drag to place. Dotted + cells grow the board when auto size is on.</p>
+      </div>
+      <div class="layout-col">
+      <div class="layout-bar">
+        <h2>Top layout</h2>
+        <p class="legend">Drag to place. Dotted + cells grow the board when auto size is on.</p>
+        <button type="button" id="layout-dock">Move Layout Beside</button>
+      </div>
       <div id="grid"></div>
+      </div>
     </section>
   </main>
   <footer>
     <a href="/privacy.html">Privacy</a>
     <span>M3 from below into lid pegs. Lid prints face-down.</span>
   </footer>
-  <script src="/app.js?v=28"></script>
-  <script type="module" src="/preview.js?v=28"></script>
+  <script src="/app.js?v=29"></script>
+  <script type="module" src="/preview.js?v=29"></script>
 </body>
 </html>

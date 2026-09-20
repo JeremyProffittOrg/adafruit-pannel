@@ -55,8 +55,8 @@ def main():
     rnd = Renderer(W, H, bg=(0.09, 0.11, 0.14))
     rnd.load_stl("bottom", KIT / "bottom.stl")
     rnd.load_stl("top", KIT / "top.stl")
-    rnd.load_stl("tilt_b", KIT / "tilt-bottom.stl")
-    rnd.load_stl("tilt_t", KIT / "tilt-top.stl")
+    rnd.load_stl("tilt_b", KIT / "face-tilt-bottom.stl")
+    rnd.load_stl("tilt_t", KIT / "face-tilt-top.stl")
     bb = rnd._bounds["bottom"]
     tb = rnd._bounds["top"]
     tbb = rnd._bounds["tilt_b"]

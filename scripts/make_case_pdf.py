@@ -27,10 +27,10 @@ PARTS = [
      "Bottom tray  5 x 4 cells  25 mm inside  M3 from below, blind peg sockets"),
     ("top", ROOT / "print-kits" / "sliders-quads-case" / "top.stl", COLORS["faceplate"],
      "Top lid  print this way (visible face on the bed, skirt and bosses up)"),
-    ("tilt_bottom", ROOT / "print-kits" / "sliders-quads-case" / "tilt-bottom.stl", COLORS["join"],
-     "Tilt demo tray  4 x 6  rows 0,0,0,+30,+30,-30"),
-    ("tilt_top", ROOT / "print-kits" / "sliders-quads-case" / "tilt-top.stl", COLORS["adapter"],
-     "Tilt demo lid  same slope, skirt over the tray, short rim pegs"),
+    ("face_tilt_bottom", ROOT / "print-kits" / "sliders-quads-case" / "face-tilt-bottom.stl", COLORS["join"],
+     "Face-tilt tray  5 x 4  sitting 30 deg, floor fill to 3 mm above the table"),
+    ("face_tilt_top", ROOT / "print-kits" / "sliders-quads-case" / "face-tilt-top.stl", COLORS["adapter"],
+     "Face-tilt lid  print face-down, short rim pegs"),
 ]
 
 

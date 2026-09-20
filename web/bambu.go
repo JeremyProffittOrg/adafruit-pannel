@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -19,12 +20,15 @@ import (
 	"github.com/google/uuid"
 )
 
+//go:embed bambu_project_settings.json
+var bambuProjectSettings []byte
+
 const (
 	bambuGapMM      = 8.0
 	bambuContentRel = `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" Target="/3D/3dmodel.model" Id="rel0"/></Relationships>`
 	bambuContentTypes = `<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>`
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="application/octet-stream"/><Default Extension="json" ContentType="application/json"/></Types>`
 )
 
 type vec3 struct{ x, y, z float32 }
@@ -122,8 +126,8 @@ func xmlName(s string) string {
 	return s
 }
 
-func writeObject(b *strings.Builder, id int, name string, m stlMesh) {
-	fmt.Fprintf(b, `<object id="%d" name="%s" type="model"><mesh><vertices>`, id, xmlName(name))
+func writeObject(b *strings.Builder, id int, name, uid string, m stlMesh) {
+	fmt.Fprintf(b, `<object id="%d" name="%s" type="model" p:UUID="%s"><mesh><vertices>`, id, xmlName(name), uid)
 	for _, v := range m.verts {
 		fmt.Fprintf(b, `<vertex x="%.5f" y="%.5f" z="%.5f"/>`, v.x, v.y, v.z)
 	}
@@ -150,17 +154,43 @@ func buildCase3MF(traySTL, lidSTL []byte) ([]byte, error) {
 	lidTx := (tmax.x - tmin.x) + float32(bambuGapMM) - lmin.x
 	lidTy := -lmin.y
 
+	trayUID := uuid.NewString()
+	lidUID := uuid.NewString()
+	buildUID := uuid.NewString()
 	var model strings.Builder
-	model.Grow(len(tray.verts)*40 + len(lid.verts)*40 + 512)
+	model.Grow(len(tray.verts)*40 + len(lid.verts)*40 + 1024)
 	model.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
-	model.WriteString(`<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">`)
+	model.WriteString(`<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">`)
+	model.WriteString(`<metadata name="Application">BambuStudio-02.08.02.61</metadata>`)
+	model.WriteString(`<metadata name="BambuStudio:3mfVersion">1</metadata>`)
 	model.WriteString(`<resources>`)
-	writeObject(&model, 1, "tray", tray)
-	writeObject(&model, 2, "lid", lid)
-	model.WriteString(`</resources><build>`)
-	fmt.Fprintf(&model, `<item objectid="1" transform="1 0 0 0 1 0 0 0 1 %.3f %.3f 0"/>`, trayTx, trayTy)
-	fmt.Fprintf(&model, `<item objectid="2" transform="1 0 0 0 1 0 0 0 1 %.3f %.3f 0"/>`, lidTx, lidTy)
+	writeObject(&model, 1, "tray", trayUID, tray)
+	writeObject(&model, 2, "lid", lidUID, lid)
+	model.WriteString(`</resources><build`)
+	fmt.Fprintf(&model, ` p:UUID="%s">`, buildUID)
+	fmt.Fprintf(&model, `<item objectid="1" p:UUID="%s" transform="1 0 0 0 1 0 0 0 1 %.3f %.3f 0" printable="1"/>`, uuid.NewString(), trayTx, trayTy)
+	fmt.Fprintf(&model, `<item objectid="2" p:UUID="%s" transform="1 0 0 0 1 0 0 0 1 %.3f %.3f 0" printable="1"/>`, uuid.NewString(), lidTx, lidTy)
 	model.WriteString(`</build></model>`)
+	modelSettings := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <object id="1">
+    <metadata key="name" value="tray"/>
+    <metadata key="extruder" value="1"/>
+    <part id="1" subtype="normal_part" uuid="%s">
+      <metadata key="name" value="tray"/>
+      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>
+    </part>
+  </object>
+  <object id="2">
+    <metadata key="name" value="lid"/>
+    <metadata key="extruder" value="1"/>
+    <part id="2" subtype="normal_part" uuid="%s">
+      <metadata key="name" value="lid"/>
+      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>
+    </part>
+  </object>
+</config>
+`, trayUID, lidUID)
 
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
@@ -186,6 +216,19 @@ func buildCase3MF(traySTL, lidSTL []byte) ([]byte, error) {
 		return nil, err
 	}
 	if _, err := w.Write([]byte(model.String())); err != nil {
+		zw.Close()
+		return nil, err
+	}
+	if err := add("Metadata/model_settings.config", modelSettings); err != nil {
+		zw.Close()
+		return nil, err
+	}
+	w2, err := zw.Create("Metadata/project_settings.config")
+	if err != nil {
+		zw.Close()
+		return nil, err
+	}
+	if _, err := w2.Write(bambuProjectSettings); err != nil {
 		zw.Close()
 		return nil, err
 	}

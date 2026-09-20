@@ -55,21 +55,32 @@ func loadCatalog(root string) error {
 }
 
 type Layout struct {
-	Title     string       `json:"title,omitempty"`
-	Cols      int          `json:"cols"`
-	Rows      int          `json:"rows"`
-	InnerH    float64      `json:"inner_h"`
-	Tilts     []float64    `json:"tilts"`
-	TiltAxis  string       `json:"tilt_axis"`
-	EdgeStyle string       `json:"edge_style"`
-	EdgeMM    float64      `json:"edge_mm"`
-	Hang      bool         `json:"hang"`
-	Overlap   bool         `json:"overlap"`
-	AutoSize  bool         `json:"auto_size"`
-	FaceTilt  float64      `json:"face_tilt"`
-	Hangs     []PlacedHang `json:"hangs"`
-	Devices   []PlacedDev  `json:"devices"`
-	Walls     []PlacedWall `json:"walls"`
+	Title           string       `json:"title,omitempty"`
+	Cols            int          `json:"cols"`
+	Rows            int          `json:"rows"`
+	InnerH          float64      `json:"inner_h"`
+	Tilts           []float64    `json:"tilts"`
+	TiltAxis        string       `json:"tilt_axis"`
+	EdgeStyle       string       `json:"edge_style"`
+	EdgeMM          float64      `json:"edge_mm"`
+	Hang            bool         `json:"hang"`
+	Overlap         bool         `json:"overlap"`
+	AutoSize        bool         `json:"auto_size"`
+	FaceTilt        float64      `json:"face_tilt"`
+	BottomT         *float64     `json:"bottom_t,omitempty"`
+	BaseGridSize    float64      `json:"base_grid_size,omitempty"`
+	BaseGridPitch   float64      `json:"base_grid_pitch,omitempty"`
+	BaseGridThrough bool         `json:"base_grid_through,omitempty"`
+	Hangs           []PlacedHang `json:"hangs"`
+	Devices         []PlacedDev  `json:"devices"`
+	Walls           []PlacedWall `json:"walls"`
+}
+
+func bottomT(l Layout) float64 {
+	if l.BottomT == nil {
+		return 3
+	}
+	return *l.BottomT
 }
 
 type PlacedDev struct {
@@ -126,10 +137,16 @@ func normalizeLayout(l *Layout) {
 			l.Tilts = append(l.Tilts, 0)
 		}
 	}
-	switch l.TiltAxis {
-	case "col", "row", "flat":
-	default:
-		l.TiltAxis = "row"
+	l.TiltAxis = "flat"
+	for i := range l.Tilts {
+		l.Tilts[i] = 0
+	}
+	if l.BottomT == nil {
+		v := 3.0
+		l.BottomT = &v
+	}
+	if l.BaseGridSize > 0 && l.BaseGridPitch == 0 {
+		l.BaseGridPitch = 25
 	}
 	if l.EdgeStyle == "" {
 		l.EdgeStyle = "round"
@@ -148,6 +165,10 @@ func writeLayout(path, part string, l Layout) error {
 	fmt.Fprintf(&b, "// generated %s\n", time.Now().Format(time.RFC3339))
 	fmt.Fprintf(&b, "PART = \"%s\";\n", scadEscape(part))
 	fmt.Fprintf(&b, "COLS = %d;\nROWS = %d;\nINNER_H = %.3f;\n", l.Cols, l.Rows, l.InnerH)
+	fmt.Fprintf(&b, "BOTTOM_T = %.3f;\n", bottomT(l))
+	fmt.Fprintf(&b, "BASE_GRID_D = %.3f;\n", l.BaseGridSize)
+	fmt.Fprintf(&b, "BASE_GRID_P = %.3f;\n", l.BaseGridPitch)
+	fmt.Fprintf(&b, "BASE_GRID_THRU = %d;\n", map[bool]int{true: 1, false: 0}[l.BaseGridThrough])
 	fmt.Fprintf(&b, "EDGE_STYLE = \"%s\";\nEDGE_MM = %.3f;\n", scadEscape(l.EdgeStyle), l.EdgeMM)
 	hangs := effectiveHangs(l)
 	fmt.Fprintf(&b, "HANG = %d;\n", map[bool]int{true: 1, false: 0}[len(hangs) > 0])
@@ -182,25 +203,20 @@ func writeLayout(path, part string, l Layout) error {
 		}
 		b.WriteString("];\n")
 	}
-	axis := l.TiltAxis
-	if axis == "" {
-		axis = "row"
-	}
-	fmt.Fprintf(&b, "TILT_AXIS = \"%s\";\n", scadEscape(axis))
+	fmt.Fprintf(&b, "TILT_AXIS = \"flat\";\n")
 	nTilt := tiltCount(l)
+	if nTilt < 1 {
+		nTilt = l.Rows
+		if nTilt < 1 {
+			nTilt = 1
+		}
+	}
 	b.WriteString("TILTS = [")
 	for i := 0; i < nTilt; i++ {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		t := 0.0
-		if i < len(l.Tilts) {
-			t = l.Tilts[i]
-		}
-		if axis == "flat" {
-			t = 0
-		}
-		fmt.Fprintf(&b, "%.3f", t)
+		b.WriteString("0.000")
 	}
 	b.WriteString("];\n")
 	fmt.Fprintf(&b, "NDEV = %d;\n", len(l.Devices))

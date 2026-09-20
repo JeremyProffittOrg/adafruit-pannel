@@ -4,7 +4,11 @@ import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
 
 const PITCH = 25.4;
 const WALL = 8;
-const BOT = 3;
+const BOT_DEFAULT = 3;
+function bot(l) {
+  const v = Number(l && l.bottom_t);
+  return Number.isFinite(v) ? v : BOT_DEFAULT;
+}
 const TOP = 3.2;
 const FIT = 0.4;
 const SKIRT = 2.2;
@@ -41,7 +45,7 @@ function accumZ(l, i) {
   return z;
 }
 function wallH(l) {
-  return BOT + (l.inner_h || 25);
+  return bot(l) + (l.inner_h || 25);
 }
 function lidWY(l, i, ly) {
   const t = (tiltOf(l, i) * Math.PI) / 180;
@@ -321,7 +325,7 @@ function lidWithHoles(l, inner) {
     geo,
     new THREE.MeshLambertMaterial({ color: 0xd6dee8, side: THREE.DoubleSide })
   );
-  mesh.position.z = BOT + inner;
+  mesh.position.z = bot(l) + inner;
   return mesh;
 }
 
@@ -339,13 +343,14 @@ function lidRowWithHoles(l, i, inner) {
     geo,
     new THREE.MeshLambertMaterial({ color: 0xd6dee8, side: THREE.DoubleSide })
   );
-  mesh.position.z = BOT + inner;
+  mesh.position.z = bot(l) + inner;
   return mesh;
 }
 
 function build(l) {
   const g = new THREE.Group();
   if (!l) return g;
+  const BOT = bot(l);
   const inner = l.inner_h || 25;
   const H = BOT + inner;
   const cols = l.cols || 1;

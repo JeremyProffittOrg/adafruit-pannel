@@ -24,11 +24,13 @@ NWALL = 0;
 include <../case.scad>
 """
 
-TILT = """PART = "{part}";
-COLS = 4; ROWS = 6; INNER_H = 25;
+FACE = """PART = "{part}";
+COLS = 5; ROWS = 4; INNER_H = 25;
 EDGE_STYLE = "round"; EDGE_MM = 2;
 HANG = 1;
-TILTS = [0, 0, 0, 30, 30, -30];
+FACE_TILT = 30;
+TILT_AXIS = "flat";
+TILTS = [0, 0, 0, 0];
 NDEV = 0; NWALL = 0;
 include <../case.scad>
 """
@@ -37,9 +39,9 @@ JOBS = [
     ("sq", "bottom", GEN / "sq-bottom.stl", KIT / "bottom.stl"),
     ("sq", "top", GEN / "sq-top.stl", KIT / "top.stl"),
     ("sq", "top_use", GEN / "sq-top-use.stl", None),
-    ("tilt", "bottom", GEN / "tilt-bottom.stl", KIT / "tilt-bottom.stl"),
-    ("tilt", "top", GEN / "tilt-top.stl", KIT / "tilt-top.stl"),
-    ("tilt", "top_use", GEN / "tilt-top-use.stl", None),
+    ("face", "bottom", GEN / "face-tilt-bottom.stl", KIT / "face-tilt-bottom.stl"),
+    ("face", "top", GEN / "face-tilt-top.stl", KIT / "face-tilt-top.stl"),
+    ("face", "top_use", GEN / "face-tilt-top-use.stl", None),
 ]
 
 
@@ -48,7 +50,7 @@ def main() -> None:
     KIT.mkdir(parents=True, exist_ok=True)
     for kind, part, dest, kit in JOBS:
         src = GEN / f"job-{kind}-{part}.scad"
-        src.write_text((SQ if kind == "sq" else TILT).format(part=part), encoding="utf-8")
+        src.write_text((SQ if kind == "sq" else FACE).format(part=part), encoding="utf-8")
         print("render", kind, part, flush=True)
         r = subprocess.run(
             [str(OSC), "-o", str(dest), "--export-format=binstl", str(src)],

@@ -31,14 +31,37 @@ func TestValidateFaceTiltAndHangBottom(t *testing.T) {
 	if err := validateLayout(&l); err != nil {
 		t.Fatal(err)
 	}
-	l.FaceTilt = 50
+	l.FaceTilt = 91
 	if err := validateLayout(&l); err == nil {
 		t.Fatal("want face tilt error")
+	}
+	l.FaceTilt = 90
+	if err := validateLayout(&l); err != nil {
+		t.Fatal(err)
 	}
 	l.FaceTilt = 30
 	l.Hangs[0].Side = "top"
 	if err := validateLayout(&l); err == nil {
 		t.Fatal("want hang side error")
+	}
+}
+
+func TestValidateBottomTAndGrid(t *testing.T) {
+	v := 3.0
+	l := Layout{Cols: 5, Rows: 4, InnerH: 25, BottomT: &v, BaseGridSize: 3, BaseGridPitch: 25}
+	if err := validateLayout(&l); err != nil {
+		t.Fatal(err)
+	}
+	bad := 11.0
+	l.BottomT = &bad
+	if err := validateLayout(&l); err == nil {
+		t.Fatal("want base thickness error")
+	}
+	v = 3
+	l.BottomT = &v
+	l.BaseGridSize = 6
+	if err := validateLayout(&l); err == nil {
+		t.Fatal("want grid size error")
 	}
 }
 

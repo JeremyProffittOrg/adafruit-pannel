@@ -59,6 +59,12 @@ func TestBuildCase3MF(t *testing.T) {
 	if !bytes.Contains([]byte(model), []byte(`name="tray"`)) || !bytes.Contains([]byte(model), []byte(`name="lid"`)) {
 		t.Fatalf("3mf missing object names:\n%s", model)
 	}
+	if !have["Metadata/model_settings.config"] || !have["Metadata/project_settings.config"] {
+		t.Fatal("3mf missing Bambu metadata")
+	}
+	if !bytes.Contains([]byte(model), []byte(`BambuStudio:3mfVersion`)) {
+		t.Fatalf("3mf missing BambuStudio version:\n%s", model)
+	}
 	if !bytes.Contains([]byte(model), []byte(`objectid="1"`)) || !bytes.Contains([]byte(model), []byte(`objectid="2"`)) {
 		t.Fatalf("3mf missing build items:\n%s", model)
 	}

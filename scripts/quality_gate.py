@@ -70,22 +70,23 @@ PRESETS = {
         "top": ROOT / "print-kits" / "sliders-quads-case" / "top.stl",
         "top_use": ROOT / "cad" / "generated" / "sq-top-use.stl",
     },
-    "tilt-demo": {
-        "cols": 4,
-        "rows": 6,
+    "face-tilt": {
+        "cols": 5,
+        "rows": 4,
         "inner_h": 25.0,
-        "tilts": [0, 0, 0, 30, 30, -30],
+        "tilts": [0, 0, 0, 0],
+        "face_tilt": 30.0,
         "edge_style": "round",
         "edge_mm": 2.0,
         "devices": [],
         "walls": [],
         "hangs": [
             {"side": "back", "pos": 0, "orient": "down"},
-            {"side": "back", "pos": 3, "orient": "down"},
+            {"side": "back", "pos": 4, "orient": "down"},
         ],
-        "bottom": ROOT / "print-kits" / "sliders-quads-case" / "tilt-bottom.stl",
-        "top": ROOT / "print-kits" / "sliders-quads-case" / "tilt-top.stl",
-        "top_use": ROOT / "cad" / "generated" / "tilt-top-use.stl",
+        "bottom": ROOT / "print-kits" / "sliders-quads-case" / "face-tilt-bottom.stl",
+        "top": ROOT / "print-kits" / "sliders-quads-case" / "face-tilt-top.stl",
+        "top_use": ROOT / "cad" / "generated" / "face-tilt-top-use.stl",
     },
 }
 
@@ -366,15 +367,35 @@ def designed_cutout_mask(layout, lib, xs, ys, z, wall_h_):
     return mask
 
 
+def unface_mesh(mesh, deg):
+    """Undo cad/case.scad faced(): T(0,-WALL) Rx(deg) T(0,+WALL)."""
+    if abs(deg) < 0.05:
+        return mesh
+    m = mesh.copy()
+    m.apply_translation([0.0, WALL, 0.0])
+    a = math.radians(-deg)
+    c, s = math.cos(a), math.sin(a)
+    R = np.array(
+        [[1.0, 0.0, 0.0, 0.0], [0.0, c, -s, 0.0], [0.0, s, c, 0.0], [0.0, 0.0, 0.0, 1.0]],
+        dtype=float,
+    )
+    m.apply_transform(R)
+    m.apply_translation([0.0, -WALL, 0.0])
+    return m
+
+
 def gate_assemble(layout, tray, lid_print, lid_use=None):
     fails = []
     rows = layout["rows"]
     inner = float(layout["inner_h"])
     zh = wall_h(layout)
+    face = float(layout.get("face_tilt") or 0)
     if lid_use is not None:
         lid0 = lid_use.copy()
     else:
         lid0 = apply_mat(lid_print, lid_print_to_use_mat(rows, inner, 0.0))
+    if abs(face) > 0.05:
+        lid0 = unface_mesh(lid0, face)
 
     verts = np.asarray(lid0.vertices)
     # Rim ring: over the tray walls only (not cavity, not outer skirt).
@@ -413,7 +434,10 @@ def gate_assemble(layout, tray, lid_print, lid_use=None):
     elif flat:
         fails.append("lid has no rim pegs (nothing to locate the lid on the tray)")
 
-    # Skirt must exist: lid XY larger than tray
+    # Skirt / drop-on-Z assume a flat world-Z sit. Face-tilt trays add a
+    # world-Z fill, so those checks run only when the case is not wedged.
+    if abs(face) > 0.05:
+        return fails
     lid_min, lid_max = verts.min(axis=0), verts.max(axis=0)
     tray_v = np.asarray(tray.vertices)
     tray_min, tray_max = tray_v.min(axis=0), tray_v.max(axis=0)

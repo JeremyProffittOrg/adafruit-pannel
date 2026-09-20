@@ -61,12 +61,12 @@ def main():
     if not lid_use.exists():
         lid_use = KIT / "top.stl"
     rnd.load_stl("lid_use", lid_use)
-    rnd.load_stl("tilt_tray", KIT / "tilt-bottom.stl")
-    tilt_use = GEN / "tilt-top-use.stl"
+    rnd.load_stl("tilt_tray", KIT / "face-tilt-bottom.stl")
+    tilt_use = GEN / "face-tilt-top-use.stl"
     if not tilt_use.exists():
-        tilt_use = KIT / "tilt-top.stl"
+        tilt_use = KIT / "face-tilt-top.stl"
     rnd.load_stl("tilt_lid", tilt_use)
-    rnd.load_stl("tilt_print", KIT / "tilt-top.stl")
+    rnd.load_stl("tilt_print", KIT / "face-tilt-top.stl")
 
     tray_b = rnd._bounds["tray"]
     print_b = rnd._bounds["lid_print"]

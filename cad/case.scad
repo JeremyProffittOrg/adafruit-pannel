@@ -6,9 +6,11 @@
 // Pegs/holes on angled rows are vertical in world Z, not normal to the slope.
 // EDGE_STYLE: "square" | "round" | "chamfer"   EDGE_MM radius/chamfer.
 // Set COLS, ROWS, INNER_H, TILTS, FACE_TILT, NDEV, DEV_*, EDGE_* then include this file.
-// FACE_TILT 0–45: rotate tray about the front sitting edge and add a foot.
-// 0 = flat. 30 + hang side "bottom" = wall panel that leans out 30 deg.
+// FACE_TILT 0–90: rotate tray about the front sitting edge and fill the
+// floor down to FACE_FLOOR_GAP (3 mm) above the table. 0 = flat.
+// 30 + hang side "bottom" = wall panel that leans out 30 deg.
 // Lid print stays face-on-bed; only the tray/foot is wedged.
+// BOTTOM_T 0 = open bottom (no floor plate). BASE_GRID_D 0 = no floor grid.
 // Quality gates: python scripts/quality_gate.py --preset sliders-quads
 
 include <devices.scad>
@@ -43,7 +45,11 @@ C_HANG     = is_undef(HANG)       ? 1    : HANG;  // legacy: 1 = default back ke
 C_NHANG    = is_undef(NHANG)      ? 0    : NHANG;
 C_OVERLAP  = is_undef(OVERLAP)    ? 1    : OVERLAP; // 1 = lid skirt hangs over the tray
 C_FACE_IN  = is_undef(FACE_TILT)  ? 0    : FACE_TILT;
-C_FACE     = min(45, max(0, C_FACE_IN));
+C_FACE     = min(90, max(0, C_FACE_IN));
+FACE_FLOOR_GAP = 3.0; // min world-Z clearance under a tilted floor
+C_GRID_D   = is_undef(BASE_GRID_D)    ? 0    : BASE_GRID_D;
+C_GRID_P   = is_undef(BASE_GRID_P)    ? 25   : BASE_GRID_P;
+C_GRID_THRU = is_undef(BASE_GRID_THRU) ? 0    : BASE_GRID_THRU;
 $fn = 28;
 
 C_WALL_H = C_BOT + C_INNER;
@@ -491,12 +497,75 @@ module wall_pocket(side, id, pos) {
     }
 }
 
+function post_xys_flat() = concat(
+    [for (r = [0:C_ROWS-1]) [-C_PEG_INSET, (r + 0.5) * C_PITCH]],
+    [for (r = [0:C_ROWS-1]) [C_COLS * C_PITCH + C_PEG_INSET, (r + 0.5) * C_PITCH]],
+    (C_COLS > 1)
+        ? [for (c = [1:C_COLS-1]) [c * C_PITCH, -C_PEG_INSET]]
+        : [[C_PITCH / 2, -C_PEG_INSET]],
+    (C_COLS > 1)
+        ? [for (c = [1:C_COLS-1]) [c * C_PITCH, C_ROWS * C_PITCH + C_PEG_INSET]]
+        : [[C_PITCH / 2, C_ROWS * C_PITCH + C_PEG_INSET]]
+);
+
+function grid_keep(d) = (C_M3CS + d) / 2 + 0.6;
+function hits_post(x, y, d) =
+    max([for (p = post_xys_flat()) (norm([p[0] - x, p[1] - y]) < grid_keep(d) ? 1 : 0)]) > 0;
+
+module base_grid_holes() {
+    if (C_BOT > 0.05 && C_GRID_D >= 1.5 && C_GRID_P >= 5) {
+        span_x = C_COLS * C_PITCH;
+        span_y = C_ROWS * C_PITCH;
+        n_x = max(1, floor((span_x - C_GRID_D) / C_GRID_P + 0.001) + 1);
+        n_y = max(1, floor((span_y - C_GRID_D) / C_GRID_P + 0.001) + 1);
+        origin_x = (span_x - (n_x - 1) * C_GRID_P) / 2;
+        origin_y = (span_y - (n_y - 1) * C_GRID_P) / 2;
+        h = (C_GRID_THRU != 0) ? (C_BOT + 2) : (0.75 * C_BOT + 0.02);
+        for (i = [0:n_x - 1], j = [0:n_y - 1]) {
+            x = origin_x + i * C_GRID_P;
+            y = origin_y + j * C_GRID_P;
+            if (!hits_post(x, y, C_GRID_D))
+                translate([x, y, C_BOT - h])
+                    cylinder(d=C_GRID_D, h=h + 0.04);
+        }
+    }
+}
+
 module tray_fasteners() {
     each_post() {
         m3_through();
         m3_csink_floor();
     }
     each_post_lid() tray_socket();
+}
+
+// World-Z M3 through the sitting fill so screws reach the table-side base.
+function face_world_y(py) = (py + C_WALL) * cos(C_FACE) - C_WALL;
+module world_foot_fasteners() {
+    for (p = post_xys_flat())
+        translate([p[0], face_world_y(p[1]), 0]) {
+            cylinder(d=C_M3, h=400);
+            translate([0, 0, FACE_FLOOR_GAP - 0.02])
+                cylinder(d1=C_M3CS, d2=C_M3, h=2.2);
+        }
+}
+
+module world_foot_grid() {
+    if (C_GRID_THRU != 0 && C_BOT > 0.05 && C_GRID_D >= 1.5 && C_GRID_P >= 5) {
+        span_x = C_COLS * C_PITCH;
+        span_y = C_ROWS * C_PITCH;
+        n_x = max(1, floor((span_x - C_GRID_D) / C_GRID_P + 0.001) + 1);
+        n_y = max(1, floor((span_y - C_GRID_D) / C_GRID_P + 0.001) + 1);
+        origin_x = (span_x - (n_x - 1) * C_GRID_P) / 2;
+        origin_y = (span_y - (n_y - 1) * C_GRID_P) / 2;
+        for (i = [0:n_x - 1], j = [0:n_y - 1]) {
+            x = origin_x + i * C_GRID_P;
+            y = origin_y + j * C_GRID_P;
+            if (!hits_post(x, y, C_GRID_D))
+                translate([x, face_world_y(y), -1])
+                    cylinder(d=C_GRID_D, h=400);
+        }
+    }
 }
 
 module wall_pocket_void(side, id, pos) {
@@ -589,26 +658,33 @@ module hang_foot_holes() {
                 hang_one("bottom", HANG_POS[i], HANG_ORIENT[i]);
 }
 
-// Sitting/hanging foot under a wedged tray. Open window so M3 screws
-// in the tilted floor stay reachable; back rail holds bottom keyholes.
-module sitting_foot() {
-    linear_extrude(C_BOT)
+// Sitting walls down to the table, plus a full floor fill that stops
+// FACE_FLOOR_GAP (3 mm) above the table — not a short back rail.
+module sitting_wall_hulls() {
+    hull() {
+        translate([-C_WALL, -C_WALL, 0]) cube([C_WALL, case_d(), max(C_BOT, 0.8)]);
+        faced() translate([-C_WALL, -C_WALL, 0]) cube([C_WALL, case_d(), max(C_BOT, 0.8)]);
+    }
+    hull() {
+        translate([C_COLS * C_PITCH, -C_WALL, 0]) cube([C_WALL, case_d(), max(C_BOT, 0.8)]);
+        faced() translate([C_COLS * C_PITCH, -C_WALL, 0]) cube([C_WALL, case_d(), max(C_BOT, 0.8)]);
+    }
+    hull() {
+        translate([-C_WALL, C_ROWS * C_PITCH, 0]) cube([case_w(), C_WALL, max(C_BOT, 0.8)]);
+        faced() translate([-C_WALL, C_ROWS * C_PITCH, 0]) cube([case_w(), C_WALL, max(C_BOT, 0.8)]);
+    }
+}
+
+module face_floor_fill() {
+    if (C_BOT > 0.05) {
         difference() {
-            translate([-C_WALL, -C_WALL]) edge_rect(case_w(), case_d());
-            translate([0, 0])
-                square([C_COLS * C_PITCH, max(8, C_ROWS * C_PITCH - 16)]);
+            translate([-C_WALL, -C_WALL, FACE_FLOOR_GAP])
+                linear_extrude(400)
+                    edge_rect(case_w(), case_d());
+            faced()
+                translate([-C_WALL - 40, -C_WALL - 40, 0])
+                    cube([case_w() + 80, case_d() + 80, 500]);
         }
-    hull() {
-        translate([-C_WALL, -C_WALL, 0]) cube([C_WALL, case_d(), C_BOT]);
-        faced() translate([-C_WALL, -C_WALL, 0]) cube([C_WALL, case_d(), C_BOT]);
-    }
-    hull() {
-        translate([C_COLS * C_PITCH, -C_WALL, 0]) cube([C_WALL, case_d(), C_BOT]);
-        faced() translate([C_COLS * C_PITCH, -C_WALL, 0]) cube([C_WALL, case_d(), C_BOT]);
-    }
-    hull() {
-        translate([-C_WALL, C_ROWS * C_PITCH, 0]) cube([case_w(), C_WALL, C_BOT]);
-        faced() translate([-C_WALL, C_ROWS * C_PITCH, 0]) cube([case_w(), C_WALL, C_BOT]);
     }
 }
 
@@ -617,12 +693,18 @@ module bottom_tray_use() {
         union() {
             if (face_on()) {
                 faced() bottom_tray();
-                sitting_foot();
+                face_floor_fill();
+                sitting_wall_hulls();
             } else {
                 bottom_tray();
             }
         }
         hang_foot_holes();
+        if (face_on()) {
+            faced() each_post() m3_through();
+            world_foot_fasteners();
+            world_foot_grid();
+        }
     }
 }
 
@@ -638,12 +720,18 @@ module bottom_tray_flat() {
     difference() {
         linear_extrude(C_WALL_H)
             translate([-C_WALL, -C_WALL]) edge_rect(case_w(), case_d());
-        translate([0, 0, C_BOT])
-            linear_extrude(C_WALL_H + 1)
-                square([C_COLS*C_PITCH, C_ROWS*C_PITCH]);
+        if (C_BOT <= 0.05)
+            translate([0, 0, -1])
+                linear_extrude(C_WALL_H + 2)
+                    square([C_COLS*C_PITCH, C_ROWS*C_PITCH]);
+        else
+            translate([0, 0, C_BOT])
+                linear_extrude(C_WALL_H + 1)
+                    square([C_COLS*C_PITCH, C_ROWS*C_PITCH]);
         tray_fasteners();
         tray_wall_cuts();
         hang_holes();
+        base_grid_holes();
     }
     tray_extras();
 }
@@ -675,6 +763,7 @@ module bottom_tray_tilted() {
         tray_fasteners();
         tray_wall_cuts();
         hang_holes();
+        base_grid_holes();
     }
     tray_extras();
 }
