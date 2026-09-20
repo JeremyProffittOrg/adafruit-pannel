@@ -13,7 +13,7 @@ DOCS = ROOT / "docs"
 VOICE = "en-US-AndrewNeural"
 FFMPEG = r"C:\Users\Jeremy\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.2-full_build\bin\ffmpeg.exe"
 
-SITE_SCRIPT = """This is the panel case builder at ap.jeremy.ninja.
+SITE_SCRIPT = """This is the panel case builder at case-maker.jeremy.ninja.
 
 You are looking at a one inch grid case. A closed four-wall tray, and a shoebox lid. Boards screw to the underside of the lid. Sign in with Amazon to keep projects.
 
@@ -31,7 +31,7 @@ The bill of materials updates as you place parts. Screw counts and store links a
 
 Sign in to save folders, cases, and notes. Search your library. List every case that uses a part.
 
-Build the case. Print the lid face-down. ap.jeremy.ninja.
+Build the case. Print the lid face-down. case-maker.jeremy.ninja.
 """
 
 CASE_SCRIPT = """This is a two-piece one inch case. A closed tray, and a shoebox lid. Five by four cells, twenty-five millimetres inside, eight millimetre walls. Boards screw to the underside of the lid.
@@ -46,7 +46,7 @@ A ghost lid. Pegs sit in the wall tops. The cavity stays clear. Pegs live in the
 
 Rows can tilt. Three flat, two at plus thirty degrees, one at minus thirty. Side walls stay full height at every kink. The skirt hangs straight down so the lid still drops on.
 
-Build it at ap.jeremy.ninja. Sign in with Amazon. Save folders, cases, and notes. Download a zip with the BOM and OpenSCAD. The lid prints face-down.
+Build it at case-maker.jeremy.ninja. Sign in with Amazon. Save folders, cases, and notes. Download a zip with the BOM and OpenSCAD. The lid prints face-down.
 """
 
 

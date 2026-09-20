@@ -49,7 +49,7 @@ def hud(img, title, lines):
     for line in lines:
         d.text((16, y), line, fill=(226, 232, 240), font=small)
         y += 22
-    d.text((W - 220, 12), "ap.jeremy.ninja", fill=(147, 197, 253), font=tiny)
+    d.text((W - 220, 12), "case-maker.jeremy.ninja", fill=(147, 197, 253), font=tiny)
     return img
 
 
@@ -162,7 +162,7 @@ def main():
                 else:
                     rnd.draw("tilt_print", seated, color=COLORS["adapter"], alpha=0.94)
             else:
-                title = "Build it at ap.jeremy.ninja"
+                title = "Build it at case-maker.jeremy.ninja"
                 notes = ["Sign in with Amazon. Save folders, cases, notes.", "Download zip: BOM + OpenSCAD. Lid prints face-down."]
                 u = st(t, 0.82, 1.0)
                 yaw = 35 + 50 * u

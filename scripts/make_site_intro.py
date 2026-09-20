@@ -1,4 +1,4 @@
-"""60 s user-introduction video of https://ap.jeremy.ninja  1280x720 24 fps."""
+"""60 s user-introduction video of https://case-maker.jeremy.ninja  1280x720 24 fps."""
 from __future__ import annotations
 
 import subprocess
@@ -15,7 +15,7 @@ POSTER = ROOT / "docs" / "preview" / "site-intro-poster.png"
 W, H, FPS, SECONDS = 1280, 720, 24, 78
 NFRAMES = FPS * SECONDS
 FFMPEG = r"C:\Users\Jeremy\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.2-full_build\bin\ffmpeg.exe"
-URL = "https://ap.jeremy.ninja/"
+URL = "https://case-maker.jeremy.ninja/"
 
 
 def hud(img, title, line):
@@ -32,7 +32,7 @@ def hud(img, title, line):
     d.text((16, 8), title, fill=(226, 232, 240), font=font)
     d.rectangle([0, H - 40, W, H], fill=(11, 15, 25))
     d.text((16, H - 32), line, fill=(226, 232, 240), font=small)
-    d.text((W - 220, 12), "ap.jeremy.ninja", fill=(147, 197, 253), font=tiny)
+    d.text((W - 220, 12), "case-maker.jeremy.ninja", fill=(147, 197, 253), font=tiny)
     return img
 
 
@@ -104,7 +104,7 @@ def main():
         page.evaluate("window.scrollTo(0,0)")
         time.sleep(0.3)
         shots.append((grab(page, "Save projects after you sign in", "Folders, cases, notes, search, and cases-by-part. Zip = BOM + OpenSCAD."), 9.0))
-        shots.append((grab(page, "ap.jeremy.ninja", "Sign in with Amazon. Build the case. Print the lid face-down."), 9.0))
+        shots.append((grab(page, "case-maker.jeremy.ninja", "Sign in with Amazon. Build the case. Print the lid face-down."), 9.0))
 
         poster = shots[0][0].copy()
         total = 0.0

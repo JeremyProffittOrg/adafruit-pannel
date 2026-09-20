@@ -46,7 +46,7 @@ This run builds CAD and builder UI for face-tilt floor fill, base thickness, bas
 - `.part-actions button` is 28×28 with a filled background. `#devdrag` is a separate grab handle.
 - Static cache query is `v=28` on `index.html` and `privacy.html`.
 - Local OpenSCAD: `C:\Users\Jeremy\tools\openscad-nightly\openscad.exe`. Quality gate: `python scripts/quality_gate.py --preset sliders-quads` (and the face-tilt preset after the rename).
-- Live site `https://ap.jeremy.ninja`. Push to `main` deploys via GitHub Actions OIDC. Do not deploy from this machine.
+- Live site `https://case-maker.jeremy.ninja`. Push to `main` deploys via GitHub Actions OIDC. Do not deploy from this machine.
 - `web/static/preview.js` hardcodes `BOT = 3`. It must read `layout.bottom_t`.
 
 ## Assumptions (not verified)
@@ -70,7 +70,7 @@ Anything else is worked around, marked `[!]`, and reported at the end.
 
 - Edit CAD, web, quality_gate, privacy, print-kits, gitignore.
 - `gofmt`, `go test ./web`, `go build`, `python scripts/quality_gate.py`, local OpenSCAD via `scripts/render_case_kits.py`.
-- Playwright against `127.0.0.1:8787` and after deploy against `https://ap.jeremy.ninja`.
+- Playwright against `127.0.0.1:8787` and after deploy against `https://case-maker.jeremy.ninja`.
 - Commit to `main`, push, watch GitHub Actions to a terminal result.
 - Do not use Windows MCP on Bambu Studio. Do not local-deploy SAM.
 

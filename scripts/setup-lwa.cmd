@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableExtensions
-title Login with Amazon — ap.jeremy.ninja
+title Login with Amazon — case-maker.jeremy.ninja
 cd /d "%~dp0.."
 
 echo.
 echo ============================================================
-echo  Login with Amazon  (LWA)  for  https://ap.jeremy.ninja
+echo  Login with Amazon  (LWA)  for  https://case-maker.jeremy.ninja
 echo ============================================================
 echo.
 echo  This window is the ONLY place you type the Client ID and
@@ -27,13 +27,13 @@ echo.
 echo  STEP 2 — Web Settings on that profile  (exact values)
 echo  ------------------------------------------------------------
 echo  Allowed Origins  (one per line):
-echo    https://ap.jeremy.ninja
+echo    https://case-maker.jeremy.ninja
 echo.
 echo  Allowed Return URLs  (one per line):
-echo    https://ap.jeremy.ninja/auth/amazon/callback
+echo    https://case-maker.jeremy.ninja/auth/amazon/callback
 echo.
 echo  Privacy Notice URL:
-echo    https://ap.jeremy.ninja/privacy.html
+echo    https://case-maker.jeremy.ninja/privacy.html
 echo.
 echo  Consent Privacy Notice URL: same as Privacy Notice URL
 echo.

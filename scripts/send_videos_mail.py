@@ -48,11 +48,11 @@ def main():
         f"  local {CASE_LOCAL}  {CASE_LOCAL.stat().st_size} bytes  1280x720  24 fps  75 s  with voiceover\n"
         f"site-intro {SITE_URL}\n"
         f"  local {SITE_LOCAL}  {SITE_LOCAL.stat().st_size} bytes  1280x720  24 fps  78 s  with voiceover\n"
-        f"site https://ap.jeremy.ninja/"
+        f"site https://case-maker.jeremy.ninja/"
     )
     outcome = (
         "Two videos with spoken walkthrough are on S3: 75 s case animation "
-        "(explode, print flip, skirt drop, tilt) and 78 s site intro of ap.jeremy.ninja."
+        "(explode, print flip, skirt drop, tilt) and 78 s site intro of case-maker.jeremy.ninja."
     )
     repl = {
         "{{OUTCOME_ONE_LINE}}": outcome,

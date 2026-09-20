@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: ap.jeremy.ninja panel case builder (Fiber on Lambda)
+Description: case-maker.jeremy.ninja panel case builder (Fiber on Lambda)
 
 Parameters:
   DomainName:
     Type: String
-    Default: ap.jeremy.ninja
+    Default: case-maker.jeremy.ninja
   CertificateArn:
     Type: String
   HostedZoneId:

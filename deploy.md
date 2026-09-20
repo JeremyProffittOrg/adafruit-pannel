@@ -97,7 +97,7 @@ don't build per-repo rotation machinery.
 | | |
 |---|---|
 | Repo | `JeremyProffittOrg/adafruit-pannel` |
-| Domain | `ap.jeremy.ninja` |
+| Domain | `case-maker.jeremy.ninja` |
 | AWS account | `759775734231` (repo var `DEPLOY_AWS_ACCOUNT`) |
 | Deploy role | repo var `AWS_DEPLOY_ROLE_ARN` |
 | Pre-set variables | `ADMIN_USER, DOMAIN_NAME, HOSTED_ZONE_ID, CERTIFICATE_ARN, CERTIFICATE_ARN_US_EAST_2, CLOUDFORMATION_S3_BUCKET, DEPLOY_AWS_ACCOUNT, AWS_DEPLOY_ROLE_ARN` |
