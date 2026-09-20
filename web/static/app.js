@@ -1688,6 +1688,9 @@ $("layout-dock")?.addEventListener("click", () => {
   pane.classList.toggle("beside", beside);
   try { localStorage.panelLayoutDock = beside ? "beside" : "below"; } catch { /* ignore */ }
   $("layout-dock").textContent = beside ? "Move Layout Below" : "Move Layout Beside";
+  requestAnimationFrame(() => {
+    if (window.rebuildPreview) window.rebuildPreview();
+  });
 });
 try {
   if (localStorage.panelLayoutDock === "beside") {
