@@ -779,7 +779,7 @@ function init() {
   camera.position.set(200, 170, 240);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio || 1);
-  renderer.setSize(w, h);
+  renderer.setSize(w, h, false);
   el.appendChild(renderer.domElement);
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -790,12 +790,14 @@ function init() {
   scene.add(new THREE.GridHelper(420, 16, 0x155e75, 0x0b2a33));
   rebuildPreview();
   const sizeView = () => {
+    if (!renderer || !camera) return;
     const nw = Math.max(el.clientWidth, 1);
     const nh = Math.max(el.clientHeight, 1);
     camera.aspect = nw / nh;
     camera.updateProjectionMatrix();
-    renderer.setSize(nw, nh);
+    renderer.setSize(nw, nh, false);
   };
+  window.sizePreview = sizeView;
   window.addEventListener("resize", sizeView);
   if (window.ResizeObserver) new ResizeObserver(sizeView).observe(el);
   function setViewMode(mode) {

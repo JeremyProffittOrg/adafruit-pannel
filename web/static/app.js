@@ -1678,6 +1678,14 @@ $("notetext")?.addEventListener("input", () => {
     persistCase(false).catch((e) => { $("status").textContent = String(e); });
   }, 500);
 });
+function relayoutPreview() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (window.sizePreview) window.sizePreview();
+      if (window.rebuildPreview) window.rebuildPreview();
+    });
+  });
+}
 $("layout-dock")?.addEventListener("click", () => {
   const pane = $("pane-view");
   if (!pane) return;
@@ -1685,9 +1693,7 @@ $("layout-dock")?.addEventListener("click", () => {
   pane.classList.toggle("beside", beside);
   try { localStorage.panelLayoutDock = beside ? "beside" : "below"; } catch { /* ignore */ }
   $("layout-dock").textContent = beside ? "Move Layout Below" : "Move Layout Beside";
-  requestAnimationFrame(() => {
-    if (window.rebuildPreview) window.rebuildPreview();
-  });
+  relayoutPreview();
 });
 try {
   if (localStorage.panelLayoutDock === "beside") {
